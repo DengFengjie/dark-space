@@ -131,8 +131,8 @@ const probeList = [
 // ──────────────────────────────────────────────────────────
 function initScene() {
   const result = initThree(canvasRef.value, {
-    cameraY: 110, cameraZ: 260,
-    minDistance: 2, maxDistance: 3000
+    cameraY: 600, cameraZ: 1200,
+    minDistance: 2, maxDistance: 8000
   })
   scene = result.scene
   camera = result.camera

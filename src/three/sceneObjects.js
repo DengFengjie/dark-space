@@ -66,7 +66,24 @@ export function loadProbeModel(modelFile) {
         const model = gltf.scene
         model.scale.setScalar(1.5)
         model.traverse(child => {
-          if (child.isMesh) { child.castShadow = false; child.receiveShadow = false }
+          if (child.isMesh) {
+            child.castShadow = false
+            child.receiveShadow = false
+            if (child.material) {
+              // 替换为 MeshBasicMaterial，不依赖场景光照，模型始终清晰
+              const oldMat = child.material
+              const newMat = new THREE.MeshBasicMaterial({
+                color: oldMat.color ? oldMat.color.clone() : 0xFFFFFF,
+                map: oldMat.map || null,
+                transparent: oldMat.transparent,
+                opacity: oldMat.opacity,
+                side: oldMat.side,
+                depthWrite: oldMat.depthWrite !== false
+              })
+              oldMat.dispose()
+              child.material = newMat
+            }
+          }
         })
         resolve(model)
       }, (err) => {
@@ -93,7 +110,7 @@ function auToScene(x, y, z) {
 export const PLANET_CONFIG = {
   mercury: {
     name: '水星', nameEn: 'Mercury',
-    radius: 1.8, color: 0x9C8F7A,
+    radius: 1.34, color: 0x9C8F7A,
     orbitColor: 0x554433,
     description: '距太阳最近的行星，表面布满陨石坑，昼夜温差高达600°C',
     stats: {
@@ -113,7 +130,7 @@ export const PLANET_CONFIG = {
   },
   venus: {
     name: '金星', nameEn: 'Venus',
-    radius: 3.2, color: 0xE8C07A,
+    radius: 3.32, color: 0xE8C07A,
     orbitColor: 0x776633,
     description: '太阳系中最热的行星，浓密二氧化碳大气层产生强烈温室效应',
     stats: {
@@ -133,7 +150,7 @@ export const PLANET_CONFIG = {
   },
   earth: {
     name: '地球', nameEn: 'Earth',
-    radius: 3.5, color: 0x4B8FDB,
+    radius: 3.50, color: 0x4B8FDB,
     atmosphereColor: 0x87CEEB,
     orbitColor: 0x2244AA,
     hasAtmosphere: true,
@@ -155,7 +172,7 @@ export const PLANET_CONFIG = {
   },
   mars: {
     name: '火星', nameEn: 'Mars',
-    radius: 2.5, color: 0xC1440E,
+    radius: 1.86, color: 0xC1440E,
     orbitColor: 0x771100,
     description: '被称为红色星球，表面富含氧化铁，是人类深空探测的重点目标',
     stats: {
@@ -176,7 +193,7 @@ export const PLANET_CONFIG = {
   },
   jupiter: {
     name: '木星', nameEn: 'Jupiter',
-    radius: 11, color: 0xC88B3A,
+    radius: 10.24, color: 0xC88B3A,
     orbitColor: 0x664400,
     description: '太阳系最大行星，其大红斑是持续数百年的超级风暴',
     stats: {
@@ -196,7 +213,7 @@ export const PLANET_CONFIG = {
   },
   saturn: {
     name: '土星', nameEn: 'Saturn',
-    radius: 9, color: 0xEAD5A0,
+    radius: 8.53, color: 0xEAD5A0,
     orbitColor: 0x886633,
     hasRing: true,
     description: '以壮观的光环系统著称，密度是八大行星中最低的',
@@ -217,7 +234,7 @@ export const PLANET_CONFIG = {
   },
   uranus: {
     name: '天王星', nameEn: 'Uranus',
-    radius: 5.5, color: 0x7DE8E8,
+    radius: 3.72, color: 0x7DE8E8,
     orbitColor: 0x336677,
     description: '侧向自转的冰巨星，自转轴倾斜约98°，拥有独特的环系统',
     stats: {
@@ -235,7 +252,7 @@ export const PLANET_CONFIG = {
   },
   neptune: {
     name: '海王星', nameEn: 'Neptune',
-    radius: 5.2, color: 0x4070DD,
+    radius: 3.61, color: 0x4070DD,
     orbitColor: 0x223388,
     description: '太阳系最远的行星，拥有太阳系最强风速（超过2100 km/h）',
     stats: {
@@ -260,7 +277,7 @@ export const PLANET_CONFIG = {
 /**
  * 创建星空背景（粒子系统）
  */
-export function createStarfield(scene, count = 15000) {
+export function createStarfield(scene, count = 1800) {
   const positions = new Float32Array(count * 3)
   const colors = new Float32Array(count * 3)
 
@@ -268,7 +285,7 @@ export function createStarfield(scene, count = 15000) {
     // 均匀分布在大球壳上
     const theta = Math.random() * Math.PI * 2
     const phi = Math.acos(2 * Math.random() - 1)
-    const r = 2000 + Math.random() * 500
+    const r = 3000 + Math.random() * 1500
 
     positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta)
     positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta)
@@ -286,11 +303,11 @@ export function createStarfield(scene, count = 15000) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
 
   const mat = new THREE.PointsMaterial({
-    size: 1.2,
+    size: 1.5,
     vertexColors: true,
     transparent: true,
-    opacity: 0.9,
-    sizeAttenuation: false  // 星星大小不随距离变化
+    opacity: 0.75,
+    sizeAttenuation: false
   })
 
   const stars = new THREE.Points(geo, mat)
@@ -301,21 +318,15 @@ export function createStarfield(scene, count = 15000) {
 }
 
 /**
- * 创建太阳（含发光效果）
+ * 创建太阳（小型光点 + 光晕 Sprite）
  */
 export function createSun(scene) {
   const group = new THREE.Group()
   group.name = '太阳_group'
 
-  // 太阳主体
-  const geo = new THREE.SphereGeometry(15, 64, 64)
-  const mat = new THREE.MeshStandardMaterial({
-    color: 0xFFD060,
-    emissive: 0xFF8800,
-    emissiveIntensity: 2,
-    roughness: 1,
-    metalness: 0
-  })
+  // 太阳光点（小尺寸明亮球体）
+  const geo = new THREE.SphereGeometry(2.5, 32, 32)
+  const mat = new THREE.MeshBasicMaterial({ color: 0xFFF4E0 })
   const sunMesh = new THREE.Mesh(geo, mat)
   sunMesh.name = '太阳'
   sunMesh.userData = {
@@ -342,23 +353,36 @@ export function createSun(scene) {
   }
   group.add(sunMesh)
 
-  // 外发光晕层
-  const glowGeo = new THREE.SphereGeometry(17, 32, 32)
-  const glowMat = new THREE.MeshBasicMaterial({
-    color: 0xFF6600,
-    transparent: true,
-    opacity: 0.12,
-    side: THREE.BackSide
-  })
-  group.add(new THREE.Mesh(glowGeo, glowMat))
+  // 光晕 Sprite（始终面向相机，模拟恒星光芒）
+  const glowCanvas = document.createElement('canvas')
+  glowCanvas.width = 128
+  glowCanvas.height = 128
+  const ctx = glowCanvas.getContext('2d')
+  const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64)
+  gradient.addColorStop(0, 'rgba(255, 240, 200, 1)')
+  gradient.addColorStop(0.08, 'rgba(255, 200, 100, 0.9)')
+  gradient.addColorStop(0.25, 'rgba(255, 150, 40, 0.5)')
+  gradient.addColorStop(0.5, 'rgba(255, 100, 20, 0.12)')
+  gradient.addColorStop(1, 'rgba(255, 60, 10, 0)')
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, 128, 128)
+  const glowTex = new THREE.CanvasTexture(glowCanvas)
+  const glowSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: glowTex,
+    blending: THREE.AdditiveBlending,
+    depthTest: false,
+    depthWrite: false
+  }))
+  glowSprite.scale.set(30, 30, 1)
+  group.add(glowSprite)
 
-  // 点光源（照亮行星）
-  const light = new THREE.PointLight(0xFFEECC, 3, 0, 1.5)  // 0=无衰减上限
+  // 点光源（照亮行星）— decay=0 关闭距离衰减，使远近行星都能被照亮
+  const light = new THREE.PointLight(0xFFEECC, 2, 0, 0)
   light.position.set(0, 0, 0)
   scene.add(light)
 
-  // 环境光（模拟星际散射）
-  scene.add(new THREE.AmbientLight(0x111133, 0.5))
+  // 环境光（模拟星际散射）— 提升强度确保行星暗面也有基础照明
+  scene.add(new THREE.AmbientLight(0x334466, 1.0))
 
   scene.add(group)
   return { group, mesh: sunMesh }
@@ -381,8 +405,8 @@ export function createPlanet(scene, key, jd) {
   const geo = new THREE.SphereGeometry(cfg.radius, 64, 64)
   const mat = new THREE.MeshStandardMaterial({
     color: cfg.color,
-    roughness: 0.85,
-    metalness: 0.05
+    roughness: 0.55,
+    metalness: 0.1
   })
 
   const mesh = new THREE.Mesh(geo, mat)
@@ -526,6 +550,7 @@ export function createProbeTrajectory(scene, points, color = 0x00FFFF, name = 'p
   if (model) {
     model.position.copy(last)
     model.name = `probe_model_${name}`
+
     scene.add(model)
     dot.visible = false
   }

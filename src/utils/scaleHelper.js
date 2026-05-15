@@ -6,45 +6,43 @@
 // 天文单位（公里）
 export const AU_KM = 149597870.7
 
-// 渲染比例：1 AU → 多少渲染单位
-// 行星间距使用对数映射使近处行星间距合理，远处行星不会太远
-const LOG_SCALE = 40
+// 渲染比例：1 AU → 多少渲染单位（线性映射，保持真实轨道比例）
+const RENDER_SCALE = 30
 
 /**
- * 对数尺度映射：将天文单位距离映射到渲染坐标距离
- * 特点：水星-地球区间合理展开，海王星不会远到不可见
- * @param {number} au - 天文单位
- * @returns {number} 渲染单位
+ * 对数尺度映射（保留兼容，不再使用）
  */
 export function auToLogRender(au) {
   if (au <= 0) return 0
-  return Math.log10(au + 0.3) * LOG_SCALE + 20
+  return Math.log10(au + 0.3) * 40 + 20
 }
 
 /**
- * 线性尺度映射（用于需要精确比例的场景）
+ * 线性尺度映射：将天文单位距离映射到渲染坐标距离
+ * 各行星轨道间距比例与真实太阳系一致
+ * @param {number} au - 天文单位
+ * @returns {number} 渲染单位
  */
-export function auToLinearRender(au, scale = 30) {
+export function auToLinearRender(au, scale = RENDER_SCALE) {
   return au * scale
 }
 
 /**
- * 3D坐标数组（AU）转渲染坐标（对数映射）
- * 保持方向，只缩放距离
+ * 3D坐标数组（AU）转渲染坐标（线性映射）
+ * 保持方向，只缩放距离，轨道间距比例真实
  * @param {number} x - X坐标（AU）
  * @param {number} y - Y坐标（AU）
  * @param {number} z - Z坐标（AU）
  * @returns {{ rx, ry, rz }} 渲染坐标
  */
 export function eclipticToRender(x, y, z) {
-  const au = Math.sqrt(x * x + y * y + z * z)
-  if (au < 1e-10) return { rx: 0, ry: 0, rz: 0 }
-  const renderDist = auToLogRender(au)
-  const scale = renderDist / au
+  if (Math.abs(x) < 1e-10 && Math.abs(y) < 1e-10 && Math.abs(z) < 1e-10) {
+    return { rx: 0, ry: 0, rz: 0 }
+  }
   return {
-    rx: x * scale,
-    ry: z * scale, // 黄道面 → Three.js: y轴=上, 天文z→渲染y（倾斜处理）
-    rz: y * scale  // 天文y → 渲染z（黄道面在xz平面）
+    rx: x * RENDER_SCALE,
+    ry: z * RENDER_SCALE,
+    rz: y * RENDER_SCALE
   }
 }
 

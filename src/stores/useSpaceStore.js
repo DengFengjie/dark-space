@@ -3,17 +3,16 @@ import { ref, computed } from 'vue'
 
 export const useSpaceStore = defineStore('space', () => {
   // 当前时间（Unix时间戳，毫秒）
-  const currentTime = ref(new Date('2024-01-01').getTime())
+  const currentTime = ref(new Date('1991-12-26').getTime())
 
   // 选中的天体对象
   const selectedBody = ref(null)
 
   // 时间轴播放状态
-  const isPlaying = ref(false)
+  const isPlaying = ref(true)
 
-  // 时间加速比例（每帧推进的毫秒数）
-  // 86400000 = 1天/帧(~60fps下约1分钟走60天)
-  const timeScale = ref(86400000 * 2) // 默认每帧推进2天
+  // 时间加速比例（每帧推进的毫秒数，按60fps计算）
+  const timeScale = ref(720000) // 默认 12小时/秒（最慢档）
 
   // 显示轨道线
   const showOrbits = ref(true)

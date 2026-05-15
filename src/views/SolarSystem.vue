@@ -579,7 +579,7 @@ onUnmounted(() => {
 
 /* 探测器滚动容器 */
 .probe-scroll {
-  max-height: 110px;
+  max-height: 150px;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 4px;

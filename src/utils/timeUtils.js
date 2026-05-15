@@ -89,10 +89,11 @@ export function julianToGregorian(jd) {
  * 时间缩放标签配置
  * value 单位：每帧推进的毫秒数（按60fps计算）
  */
+// value = 每小时毫秒数 / 60fps = 每帧推进毫秒数
+const HOUR_PER_FRAME = 3600000 / 60
 export const TIME_SCALES = [
-  { label: '1天/帧', value: 86400000 },
-  { label: '7天/帧', value: 86400000 * 7 },
-  { label: '30天/帧', value: 86400000 * 30 },
-  { label: '90天/帧', value: 86400000 * 90 },
-  { label: '365天/帧', value: 86400000 * 365 }
+  { label: '12小时/秒', value: HOUR_PER_FRAME * 12 },  // 720000
+  { label: '24小时/秒', value: HOUR_PER_FRAME * 24 },  // 1440000
+  { label: '2天/秒',    value: HOUR_PER_FRAME * 48 },  // 2880000
+  { label: '1周/秒',    value: HOUR_PER_FRAME * 168 }  // 10080000
 ]

@@ -25,7 +25,7 @@
       <!-- 速度控制 -->
       <div class="speed-wrap">
         <button class="speed-arrow" @click="speedDown" :disabled="speedIdx <= 0">◀</button>
-        <span class="speed-value">{{ timeScales[speedIdx]?.label || '30天/秒' }}</span>
+<span class="speed-value">{{ timeScales[speedIdx]?.label || '12小时/秒' }}</span>
         <button class="speed-arrow" @click="speedUp" :disabled="speedIdx >= timeScales.length - 1">▶</button>
       </div>
 
@@ -101,7 +101,7 @@ const timeScales = TIME_SCALES
 
 // 速度档位索引
 const speedIdx = ref(timeScales.findIndex(s => s.value === store.timeScale))
-if (speedIdx.value < 0) speedIdx.value = 1
+if (speedIdx.value < 0) speedIdx.value = 0
 
 function speedUp() {
   if (speedIdx.value < timeScales.length - 1) {

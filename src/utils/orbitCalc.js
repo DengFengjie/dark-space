@@ -498,6 +498,114 @@ export function generateRosettaTrajectory() {
   return points
 }
 
+/**
+ * 生成先驱者10号（Pioneer 10）近似轨迹（带时间戳）
+ * 1972年发射，1973年飞越木星，之后飞向金牛座方向进入星际空间
+ */
+export function generatePioneerTrajectory() {
+  const points = []
+  const launchJD = unixToJulianLocal(new Date('1972-03-02').getTime())
+  const steps = 200
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const jd = launchJD + t * 365.25 * 54
+    const dist = 0.5 + t * 140
+    const angle = -2.2 + t * 0.22
+    const elev = 0.08 + t * 0.03
+    points.push({
+      jd,
+      x: Math.cos(angle) * dist * Math.cos(elev),
+      y: Math.sin(angle) * dist * Math.cos(elev),
+      z: Math.sin(elev) * dist
+    })
+  }
+  return points
+}
+
+/**
+ * 生成ACE（Advanced Composition Explorer）近似轨迹（带时间戳）
+ * 1997年发射，位于日地L1拉格朗日点（距太阳约0.99 AU）附近的晕轨道
+ */
+export function generateACETrajectory() {
+  const points = []
+  const launchJD = unixToJulianLocal(new Date('1997-08-25').getTime())
+  const steps = 160
+  const l1Dist = 0.99
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const jd = launchJD + t * 365.25 * 29
+    const haloAngle = t * Math.PI * 2 * 50
+    const haloR = 0.015
+    const earthAngle = ((jd - 2451545.0) / 365.25) * Math.PI * 2
+    const ex = Math.cos(earthAngle) * l1Dist
+    const ey = Math.sin(earthAngle) * l1Dist
+    const haloOffsetX = Math.cos(haloAngle) * haloR * Math.cos(earthAngle)
+    const haloOffsetY = Math.sin(haloAngle) * haloR * Math.cos(earthAngle)
+    const haloOffsetZ = Math.cos(haloAngle) * haloR * 0.6
+    points.push({
+      jd,
+      x: ex + haloOffsetX,
+      y: ey + haloOffsetY,
+      z: haloOffsetZ
+    })
+  }
+  return points
+}
+
+/**
+ * 生成深度撞击号（Deep Impact）近似轨迹（带时间戳）
+ * 2005年发射，2005年7月撞击坦普尔1号彗星，2010年飞越哈特利2号彗星
+ */
+export function generateDeepImpactTrajectory() {
+  const points = []
+  const launchJD = unixToJulianLocal(new Date('2005-01-12').getTime())
+  const steps = 160
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const jd = launchJD + t * 365.25 * 8
+    const dist = 0.8 + t * 4.5
+    const angle = -0.5 + t * 1.8
+    const elev = Math.sin(t * Math.PI * 2.5) * 0.3
+    const ripple = Math.sin(t * Math.PI * 6) * 0.4
+    points.push({
+      jd,
+      x: Math.cos(angle + ripple * 0.2) * (dist + ripple * 0.5),
+      y: Math.sin(angle + ripple * 0.2) * (dist * 0.8 + ripple * 0.3),
+      z: elev * 0.8
+    })
+  }
+  return points
+}
+
+/**
+ * 生成火星全球勘测者（Mars Global Surveyor）近似轨迹（带时间戳）
+ * 1996年发射，1997年抵达火星轨道，2006年结束任务
+ */
+export function generateMarsGlobalSurveyorTrajectory() {
+  const points = []
+  const launchJD = unixToJulianLocal(new Date('1996-11-07').getTime())
+  const steps = 160
+  const marsOrbitBase = 1.52
+  const marsPeriod = 686.97
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const jd = launchJD + t * 365.25 * 10
+    const marsAngle = ((jd - 2451545.0) / marsPeriod) * Math.PI * 2
+    const mx = Math.cos(marsAngle) * marsOrbitBase
+    const my = Math.sin(marsAngle) * marsOrbitBase
+    const cruiseDist = Math.min(t * 4.5, marsOrbitBase)
+    const cruiseAngle = -0.3 + t * 0.2
+    const offset = (t > 0.3) ? 0.025 * Math.cos(t * 40 + 0.6) : 0
+    points.push({
+      jd,
+      x: t < 0.3 ? Math.cos(cruiseAngle) * cruiseDist : mx + offset,
+      y: t < 0.3 ? Math.sin(cruiseAngle) * cruiseDist * 0.7 : my + offset * 0.6,
+      z: 0.015 * Math.sin(t * 30)
+    })
+  }
+  return points
+}
+
 function unixToJulianLocal(unixMs) {
   return (unixMs / 86400000) + 2440587.5
 }

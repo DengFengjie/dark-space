@@ -75,14 +75,16 @@ import { initThree, disposeThree, flyToPosition } from '../three/initThree.js'
 import {
   createStarfield, createSun, createPlanet, createOrbitLine,
   updatePlanetPositions, createProbeTrajectory, addPlanetLabel,
-  updateLabels, updateProbePositions, PLANET_CONFIG, PROBE_MODELS
+  updateLabels, updateProbePositions, PLANET_CONFIG, PROBE_MODELS, loadProbeModel
 } from '../three/sceneObjects.js'
 import { BodyRaycaster, SelectionHighlight } from '../three/controls.js'
 import {
   generateVoyager1Trajectory, generateVoyager2Trajectory,
   generateJunoTrajectory, generateParkerTrajectory,
   generateGalileoTrajectory, generateCassiniTrajectory,
-  generateRosettaTrajectory, sampleTrajectoryAt
+  generateRosettaTrajectory, sampleTrajectoryAt,
+  generatePioneerTrajectory, generateACETrajectory,
+  generateDeepImpactTrajectory, generateMarsGlobalSurveyorTrajectory
 } from '../utils/orbitCalc.js'
 import { dateStrToJulian } from '../utils/timeUtils.js'
 import { getProbeTrajectory } from '../api/horizonsApi.js'
@@ -111,13 +113,17 @@ const selectedBodyInfo = ref(null)
 
 // 探测器配置（与 PROBE_MODELS 保持一致，仅保留有真实模型的探测器）
 const probeList = [
-  { key: 'voyager1', name: '旅行者1号', agency: 'NASA',     colorHex: '#00FFFF' },
-  { key: 'voyager2', name: '旅行者2号', agency: 'NASA',     colorHex: '#00FF88' },
-  { key: 'juno',     name: '朱诺号',    agency: 'NASA',     colorHex: '#FF6B4A' },
-  { key: 'parker',   name: '帕克太阳探测器', agency: 'NASA', colorHex: '#FFD700' },
-  { key: 'galileo',  name: '伽利略号',  agency: 'NASA/ESA', colorHex: '#B983FF' },
-  { key: 'cassini',  name: '卡西尼号',  agency: 'NASA/ESA', colorHex: '#88CCFF' },
-  { key: 'rosetta',  name: '罗塞塔号',  agency: 'ESA',      colorHex: '#66DDBB' }
+  { key: 'voyager1',          name: '旅行者1号',       agency: 'NASA',     colorHex: '#00FFFF' },
+  { key: 'voyager2',          name: '旅行者2号',       agency: 'NASA',     colorHex: '#00FF88' },
+  { key: 'juno',              name: '朱诺号',          agency: 'NASA',     colorHex: '#FF6B4A' },
+  { key: 'parker',            name: '帕克太阳探测器',  agency: 'NASA',     colorHex: '#FFD700' },
+  { key: 'galileo',           name: '伽利略号',        agency: 'NASA/ESA', colorHex: '#B983FF' },
+  { key: 'cassini',           name: '卡西尼号',        agency: 'NASA/ESA', colorHex: '#88CCFF' },
+  { key: 'rosetta',           name: '罗塞塔号',        agency: 'ESA',      colorHex: '#66DDBB' },
+  { key: 'pioneer',           name: '先驱者10号',      agency: 'NASA',     colorHex: '#FF9944' },
+  { key: 'ace',               name: '先进成分探测器',  agency: 'NASA',     colorHex: '#44FFBB' },
+  { key: 'deepImpact',        name: '深度撞击号',      agency: 'NASA',     colorHex: '#FF4488' },
+  { key: 'marsGlobalSurveyor',name: '火星全球勘测者',  agency: 'NASA',     colorHex: '#FF6644' },
 ]
 
 // ──────────────────────────────────────────────────────────
@@ -172,7 +178,7 @@ function initScene() {
 // 探测器轨迹
 // ──────────────────────────────────────────────────────────
 async function buildProbeTrajectories() {
-  // 清除旧轨迹（含 GLB 模型 + 标签）
+  // 清除旧轨迹（含模型 + 标签）
   probeObjects.forEach(obj => {
     if (obj?.line)  { scene.remove(obj.line);  obj.line.geometry.dispose() }
     if (obj?.dot)   { scene.remove(obj.dot);   obj.dot.geometry.dispose() }
@@ -183,16 +189,46 @@ async function buildProbeTrajectories() {
 
   if (!store.showProbeTrajectories) return
 
-  // 并行请求7个有模型的探测器真实轨迹（通过后端代理 → JPL Horizons）
-  const [v1Api, v2Api, junoApi, parkerApi, galileoApi, cassiniApi, rosettaApi] = await Promise.all([
-    getProbeTrajectory('voyager1', '1977-09-05', '2030-01-01'),
-    getProbeTrajectory('voyager2', '1977-08-20', '2030-01-01'),
-    getProbeTrajectory('juno',     '2011-08-05', '2026-12-31'),
-    getProbeTrajectory('parker',   '2018-08-12', '2026-12-31'),
-    getProbeTrajectory('galileo',  '1989-10-18', '2003-12-31'),
-    getProbeTrajectory('cassini',  '1997-10-15', '2017-12-31'),
-    getProbeTrajectory('rosetta',  '2004-03-02', '2016-12-31')
+  // 并行加载全部 GLB 模型 + 请求真实轨迹数据（两组 Promise.all 同时进行）
+  const [
+    models,
+    [v1Api, v2Api, junoApi, parkerApi, galileoApi, cassiniApi, rosettaApi,
+     pioneerApi, aceApi, deepImpactApi, mgsApi]
+  ] = await Promise.all([
+    // 同时加载 11 个模型
+    Promise.all([
+      loadProbeModel(PROBE_MODELS.voyager1),
+      loadProbeModel(PROBE_MODELS.voyager2),
+      loadProbeModel(PROBE_MODELS.juno),
+      loadProbeModel(PROBE_MODELS.parker),
+      loadProbeModel(PROBE_MODELS.galileo),
+      loadProbeModel(PROBE_MODELS.cassini),
+      loadProbeModel(PROBE_MODELS.rosetta),
+      loadProbeModel(PROBE_MODELS.pioneer),
+      loadProbeModel(PROBE_MODELS.ace),
+      loadProbeModel(PROBE_MODELS.deepImpact),
+      loadProbeModel(PROBE_MODELS.marsGlobalSurveyor),
+    ]),
+    // 同时请求 11 条轨迹（通过后端代理 → JPL Horizons）
+    Promise.all([
+      getProbeTrajectory('voyager1',          '1977-09-05', '2030-01-01'),
+      getProbeTrajectory('voyager2',          '1977-08-20', '2030-01-01'),
+      getProbeTrajectory('juno',              '2011-08-05', '2026-12-31'),
+      getProbeTrajectory('parker',            '2018-08-12', '2026-12-31'),
+      getProbeTrajectory('galileo',           '1989-10-18', '2003-12-31'),
+      getProbeTrajectory('cassini',           '1997-10-15', '2017-12-31'),
+      getProbeTrajectory('rosetta',           '2004-03-02', '2016-12-31'),
+      getProbeTrajectory('pioneer',           '1972-03-02', '2003-12-31'),
+      getProbeTrajectory('ace',               '1997-08-25', '2030-01-01'),
+      getProbeTrajectory('deepImpact',        '2005-01-12', '2013-12-31'),
+      getProbeTrajectory('marsGlobalSurveyor','1996-11-07', '2006-12-31'),
+    ])
   ])
+
+  const [
+    v1Model, v2Model, junoModel, parkerModel, galileoModel, cassiniModel, rosettaModel,
+    pioneerModel, aceModel, deepImpactModel, mgsModel
+  ] = models
 
   // 将 API 返回的 {time, x, y, z} 转为带 jd 的采样点；失败则回退到本地近似
   const toSamples = (apiData) => {
@@ -203,30 +239,42 @@ async function buildProbeTrajectories() {
     }))
   }
 
-  const v1Points      = toSamples(v1Api)      || generateVoyager1Trajectory()
-  const v2Points      = toSamples(v2Api)      || generateVoyager2Trajectory()
-  const junoPoints    = toSamples(junoApi)    || generateJunoTrajectory(store.julianDay)
-  const parkerPoints  = toSamples(parkerApi)  || generateParkerTrajectory()
-  const galileoPoints = toSamples(galileoApi) || generateGalileoTrajectory()
-  const cassiniPoints = toSamples(cassiniApi) || generateCassiniTrajectory()
-  const rosettaPoints = toSamples(rosettaApi) || generateRosettaTrajectory()
+  const v1Points         = toSamples(v1Api)         || generateVoyager1Trajectory()
+  const v2Points         = toSamples(v2Api)         || generateVoyager2Trajectory()
+  const junoPoints       = toSamples(junoApi)       || generateJunoTrajectory(store.julianDay)
+  const parkerPoints     = toSamples(parkerApi)     || generateParkerTrajectory()
+  const galileoPoints    = toSamples(galileoApi)    || generateGalileoTrajectory()
+  const cassiniPoints    = toSamples(cassiniApi)    || generateCassiniTrajectory()
+  const rosettaPoints    = toSamples(rosettaApi)    || generateRosettaTrajectory()
+  const pioneerPoints    = toSamples(pioneerApi)    || generatePioneerTrajectory()
+  const acePoints        = toSamples(aceApi)        || generateACETrajectory()
+  const deepImpactPoints = toSamples(deepImpactApi) || generateDeepImpactTrajectory()
+  const mgsPoints        = toSamples(mgsApi)        || generateMarsGlobalSurveyorTrajectory()
 
-  // 第5个参数：GLB 模型路径；第6个参数：中文名标签
-  const v1      = createProbeTrajectory(scene, v1Points,      0x00FFFF, 'voyager1', PROBE_MODELS.voyager1, '旅行者1号')
-  const v2      = createProbeTrajectory(scene, v2Points,      0x00FF88, 'voyager2', PROBE_MODELS.voyager2, '旅行者2号')
-  const juno    = createProbeTrajectory(scene, junoPoints,    0xFF6B4A, 'juno',     PROBE_MODELS.juno,     '朱诺号')
-  const parker  = createProbeTrajectory(scene, parkerPoints,  0xFFD700, 'parker',   PROBE_MODELS.parker,   '帕克太阳探测器')
-  const galileo = createProbeTrajectory(scene, galileoPoints, 0xB983FF, 'galileo',  PROBE_MODELS.galileo,  '伽利略号')
-  const cassini = createProbeTrajectory(scene, cassiniPoints, 0x88CCFF, 'cassini',  PROBE_MODELS.cassini,  '卡西尼号')
-  const rosetta = createProbeTrajectory(scene, rosettaPoints, 0x66DDBB, 'rosetta',  PROBE_MODELS.rosetta,  '罗塞塔号')
+  // 创建轨迹，传入预加载模型（加载成功则显示模型，失败则显示彩色小球）
+  const v1         = createProbeTrajectory(scene, v1Points,         0x00FFFF, 'voyager1',           v1Model,         '旅行者1号')
+  const v2         = createProbeTrajectory(scene, v2Points,         0x00FF88, 'voyager2',           v2Model,         '旅行者2号')
+  const juno       = createProbeTrajectory(scene, junoPoints,       0xFF6B4A, 'juno',               junoModel,       '朱诺号')
+  const parker     = createProbeTrajectory(scene, parkerPoints,     0xFFD700, 'parker',             parkerModel,     '帕克太阳探测器')
+  const galileo    = createProbeTrajectory(scene, galileoPoints,    0xB983FF, 'galileo',            galileoModel,    '伽利略号')
+  const cassini    = createProbeTrajectory(scene, cassiniPoints,    0x88CCFF, 'cassini',            cassiniModel,    '卡西尼号')
+  const rosetta    = createProbeTrajectory(scene, rosettaPoints,    0x66DDBB, 'rosetta',            rosettaModel,    '罗塞塔号')
+  const pioneer    = createProbeTrajectory(scene, pioneerPoints,    0xFF9944, 'pioneer',            pioneerModel,    '先驱者10号')
+  const ace        = createProbeTrajectory(scene, acePoints,        0x44FFBB, 'ace',                aceModel,        '先进成分探测器')
+  const deepImpact = createProbeTrajectory(scene, deepImpactPoints, 0xFF4488, 'deepImpact',         deepImpactModel, '深度撞击号')
+  const mgs        = createProbeTrajectory(scene, mgsPoints,        0xFF6644, 'marsGlobalSurveyor', mgsModel,        '火星全球勘测者')
 
-  if (v1)      probeObjects.push(v1)
-  if (v2)      probeObjects.push(v2)
-  if (juno)    probeObjects.push(juno)
-  if (parker)  probeObjects.push(parker)
-  if (galileo) probeObjects.push(galileo)
-  if (cassini) probeObjects.push(cassini)
-  if (rosetta) probeObjects.push(rosetta)
+  if (v1)         probeObjects.push(v1)
+  if (v2)         probeObjects.push(v2)
+  if (juno)       probeObjects.push(juno)
+  if (parker)     probeObjects.push(parker)
+  if (galileo)    probeObjects.push(galileo)
+  if (cassini)    probeObjects.push(cassini)
+  if (rosetta)    probeObjects.push(rosetta)
+  if (pioneer)    probeObjects.push(pioneer)
+  if (ace)        probeObjects.push(ace)
+  if (deepImpact) probeObjects.push(deepImpact)
+  if (mgs)        probeObjects.push(mgs)
 }
 
 // ──────────────────────────────────────────────────────────

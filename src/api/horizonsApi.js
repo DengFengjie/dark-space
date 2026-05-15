@@ -10,16 +10,20 @@ const BASE_URL = '/api/horizons'
  * 已知探测器的 Horizons 天体编号
  */
 export const PROBE_IDS = {
-  voyager1: '-31',
-  voyager2: '-32',
-  newHorizons: '-98',
-  cassini: '-82',
-  juno: '-61',
-  dawn: '-203',
-  rosetta: '-226',
-  tianwen1: '-5',
-  parker: 'PSP',  // Parker Solar Probe
-  galileo: '-77'
+  voyager1:          '-31',
+  voyager2:          '-32',
+  newHorizons:       '-98',
+  cassini:           '-82',
+  juno:              '-61',
+  dawn:              '-203',
+  rosetta:           '-226',
+  tianwen1:          '-5',
+  parker:            'PSP',   // Parker Solar Probe
+  galileo:           '-77',
+  pioneer:           '-23',   // Pioneer 10
+  ace:               '-92',   // Advanced Composition Explorer
+  deepImpact:        '-140',  // Deep Impact
+  marsGlobalSurveyor:'-94',   // Mars Global Surveyor
 }
 
 /**

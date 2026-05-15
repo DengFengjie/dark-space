@@ -4,24 +4,59 @@
  */
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'
+
 import { calcPlanetPosition, generateOrbitPath } from '../utils/orbitCalc.js'
 import { eclipticToRender } from '../utils/scaleHelper.js'
 
 // ────────────────────────────────────────────────────────
-// 探测器模型配置表（GLB 文件路径，空格需 %20 编码）
+// 探测器模型配置表（GLB 文件路径）
 // ────────────────────────────────────────────────────────
 export const PROBE_MODELS = {
-  voyager1: '/models/probes/Voyager_Probe.glb',
-  voyager2: '/models/probes/Voyager_Probe.glb',
-  juno:     '/models/probes/Juno.glb',
-  parker:   '/models/probes/Parker_Solar_Probe.glb',
-  galileo:  '/models/probes/Galileo.glb',
-  cassini:  '/models/probes/Cassini_Huygens.glb',
-  rosetta:  '/models/probes/Rosetta.glb',
+  voyager1:          '/models/probes/Voyager_Probe.glb',
+  voyager2:          '/models/probes/Voyager_Probe.glb',
+  juno:              '/models/probes/Juno.glb',
+  parker:            '/models/probes/Parker_Solar_Probe.glb',
+  galileo:           '/models/probes/Galileo.glb',
+  cassini:           '/models/probes/Cassini_Huygens.glb',
+  rosetta:           '/models/probes/Rosetta.glb',
+  pioneer:           '/models/probes/Pioneer.glb',
+  ace:               '/models/probes/Advanced_Composition_Explorer.glb',
+  deepImpact:        '/models/probes/Deep_Impact.glb',
+  marsGlobalSurveyor:'/models/probes/Mars_Global_Surveyor.glb',
 }
 
-// 共享 GLTF 加载器实例（避免重复创建）
+// 共享 GLTF/Draco 加载器
 const _gltfLoader = new GLTFLoader()
+const _dracoLoader = new DRACOLoader()
+_dracoLoader.setDecoderPath('/draco/gltf/')
+_gltfLoader.setDRACOLoader(_dracoLoader)
+
+/**
+ * 加载单个探测器 GLB 模型，返回 Promise<THREE.Group|null>
+ * 失败时 resolve(null)，不抛出异常
+ */
+export function loadProbeModel(modelFile) {
+  return new Promise((resolve) => {
+    if (!modelFile) { resolve(null); return }
+    let url
+    try { url = new URL(modelFile, window.location.href).href } catch { url = modelFile }
+    _gltfLoader.load(
+      url,
+      (gltf) => {
+        const model = gltf.scene
+        model.scale.setScalar(1.5)
+        model.traverse(child => {
+          if (child.isMesh) { child.castShadow = false; child.receiveShadow = false }
+        })
+        resolve(model)
+      },
+      undefined,
+      (err) => { console.warn(`[probe] 模型加载失败 (${modelFile}):`, err); resolve(null) }
+    )
+  })
+}
+
 
 // ── 渲染坐标系转换：黄道坐标(AU) → Three.js场景坐标 ──
 function auToScene(x, y, z) {
@@ -422,16 +457,16 @@ export function updatePlanetPositions(planetMeshes, jd) {
 }
 
 /**
- * 创建探测器轨迹虚线（支持时间联动 + 真实 GLB 模型 + 中文名标签）
+ * 创建探测器轨迹虚线（支持时间联动 + 预加载模型/小球 + 中文名标签）
  * @param {THREE.Scene} scene
- * @param {Array<{x,y,z,jd?:number}>} points   - 原始数据点（AU）
- * @param {number} color       - 轨迹颜色（hex 数值）
- * @param {string} name        - 探测器 key（英文）
- * @param {string|null} modelFile  - GLB 文件路径，null 则保留小球
- * @param {string} labelName   - 显示的中文名称，空串则不创建标签
+ * @param {Array<{x,y,z,jd?:number}>} points  - 原始数据点（AU）
+ * @param {number} color      - 轨迹颜色（hex 数值）
+ * @param {string} name       - 探测器 key（英文）
+ * @param {THREE.Group|null} model - 已加载的 GLB 模型，null 则使用彩色小球
+ * @param {string} labelName  - 显示的中文名称，空串则不创建标签
  * @returns {{ line, dot, model, label, pts, samples }|null}
  */
-export function createProbeTrajectory(scene, points, color = 0x00FFFF, name = 'probe', modelFile = null, labelName = '') {
+export function createProbeTrajectory(scene, points, color = 0x00FFFF, name = 'probe', model = null, labelName = '') {
   if (!points || points.length < 2) return null
 
   const pts = points.map(p => auToScene(p.x, p.y, p.z))
@@ -454,16 +489,25 @@ export function createProbeTrajectory(scene, points, color = 0x00FFFF, name = 'p
   line.name = `trajectory_${name}`
   scene.add(line)
 
-  // 小球占位标记（加载模型成功后隐藏，失败则保留）
+  const last = pts[pts.length - 1]
+
+  // 彩色小球（模型加载失败时的兜底标记）
   const dotGeo = new THREE.SphereGeometry(1.2, 16, 16)
   const dotMat = new THREE.MeshBasicMaterial({ color })
   const dot = new THREE.Mesh(dotGeo, dotMat)
-  const last = pts[pts.length - 1]
   dot.position.copy(last)
   dot.name = `probe_dot_${name}`
   scene.add(dot)
 
-  // 中文名标签（跟随 dot/model 位置）
+  // 添加预加载的 GLB 模型，成功则隐藏小球
+  if (model) {
+    model.position.copy(last)
+    model.name = `probe_model_${name}`
+    scene.add(model)
+    dot.visible = false
+  }
+
+  // 中文名标签（跟随模型/小球位置）
   let label = null
   if (labelName) {
     const colorStr = '#' + color.toString(16).padStart(6, '0')
@@ -474,37 +518,7 @@ export function createProbeTrajectory(scene, points, color = 0x00FFFF, name = 'p
     scene.add(label)
   }
 
-  // 返回对象（model 字段异步填入）
-  const obj = { line, dot, model: null, label, pts, samples: points }
-
-  // 异步加载真实 GLB 模型（必须使用绝对 URL，否则 Three.js 内部 new URL(sub, base) 会因 base 是相对路径而报错）
-  if (modelFile) {
-    const absoluteUrl = new URL(modelFile, window.location.href).href
-    _gltfLoader.load(
-      absoluteUrl,
-      (gltf) => {
-        const model = gltf.scene
-        model.scale.setScalar(1.5)
-        model.position.copy(dot.position)
-        model.name = `probe_model_${name}`
-        model.traverse(child => {
-          if (child.isMesh) {
-            child.castShadow = false
-            child.receiveShadow = false
-          }
-        })
-        scene.add(model)
-        dot.visible = false   // 隐藏占位小球
-        obj.model = model
-      },
-      undefined,
-      (err) => {
-        console.warn(`[probe] 模型加载失败 (${name}):`, err.message ?? err)
-      }
-    )
-  }
-
-  return obj
+  return { line, dot, model, label, pts, samples: points }
 }
 
 /**
@@ -579,7 +593,7 @@ export function updateProbePositions(probeObjects, jd, sampleFn) {
     if (pos) {
       const sp = auToScene(pos.x, pos.y, pos.z)
       obj.dot.position.copy(sp)
-      // 同步更新真实模型位置
+      // 同步更新模型位置
       if (obj.model) obj.model.position.copy(sp)
       // 同步更新中文名标签位置（标签在模型/小球上方 4 个单位）
       if (obj.label) {

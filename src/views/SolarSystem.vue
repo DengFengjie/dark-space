@@ -24,21 +24,25 @@
     <!-- 左侧操作面板 -->
     <div class="side-panel">
       <div class="panel-card">
-        <div class="panel-title">🌌 太阳系全景</div>
-        <div class="panel-desc">基于开普勒轨道方程，实时计算八大行星精确位置。点击天体查看详情，拖动时间轴观察公转。</div>
+        <div class="panel-title">☀️ 太阳系全景</div>
+        <div class="panel-desc">基于NASA官方开普勒轨道根数，实时计算八大行星在黄道坐标系下的精确日心位置。太阳系包含8颗行星、数百颗卫星、以及无数小行星与彗星，是一个由引力精密编织的宏伟动力学系统。拖动时间轴可观察行星公转运动。</div>
       </div>
 
       <div class="panel-card probes-card">
         <div class="panel-title">🚀 探测器轨迹</div>
-        <div class="probe-list">
-          <div
-            v-for="probe in probeList"
-            :key="probe.key"
-            class="probe-item"
-            :class="{ active: store.showProbeTrajectories }"
-          >
-            <span class="probe-dot" :style="{ background: probe.colorHex }"></span>
-            <span class="probe-name">{{ probe.name }}</span>
+        <div class="panel-desc" style="margin-bottom:6px;font-size:10px;color:rgba(255,255,255,0.4)">轨迹与时间轴联动，圆点表示当前时刻探测器位置</div>
+        <div class="probe-scroll">
+          <div class="probe-list">
+            <div
+              v-for="(probe, idx) in probeList"
+              :key="probe.key"
+              class="probe-item"
+              :class="{ active: store.showProbeTrajectories }"
+            >
+              <span class="probe-dot" :style="{ background: probe.colorHex }"></span>
+              <span class="probe-name">{{ probe.name }}</span>
+              <span class="probe-agency">{{ probe.agency }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -71,10 +75,17 @@ import { initThree, disposeThree, flyToPosition } from '../three/initThree.js'
 import {
   createStarfield, createSun, createPlanet, createOrbitLine,
   updatePlanetPositions, createProbeTrajectory, addPlanetLabel,
-  updateLabels, PLANET_CONFIG
+  updateLabels, updateProbePositions, PLANET_CONFIG, PROBE_MODELS
 } from '../three/sceneObjects.js'
 import { BodyRaycaster, SelectionHighlight } from '../three/controls.js'
-import { generateVoyager1Trajectory, generateVoyager2Trajectory } from '../utils/orbitCalc.js'
+import {
+  generateVoyager1Trajectory, generateVoyager2Trajectory,
+  generateJunoTrajectory, generateParkerTrajectory,
+  generateGalileoTrajectory, generateCassiniTrajectory,
+  generateRosettaTrajectory, sampleTrajectoryAt
+} from '../utils/orbitCalc.js'
+import { dateStrToJulian } from '../utils/timeUtils.js'
+import { getProbeTrajectory } from '../api/horizonsApi.js'
 import Header from '../components/Header.vue'
 import InfoPanel from '../components/InfoPanel.vue'
 import Timeline from '../components/Timeline.vue'
@@ -91,17 +102,22 @@ let animationId = null
 const planetMeshes = {}       // { key: Mesh }
 const orbitLines = {}         // { key: Line }
 const labels = []             // Sprite[]
-let probeObjects = []         // { tube, dot }
+let probeObjects = []         // { line, dot, samples }
 let raycaster, highlight
 
 // UI状态
 const hoveredName = ref('')
 const selectedBodyInfo = ref(null)
 
-// 探测器配置（用于侧边栏展示）
+// 探测器配置（与 PROBE_MODELS 保持一致，仅保留有真实模型的探测器）
 const probeList = [
-  { key: 'v1', name: '旅行者1号', colorHex: '#00FFFF' },
-  { key: 'v2', name: '旅行者2号', colorHex: '#00FF88' }
+  { key: 'voyager1', name: '旅行者1号', agency: 'NASA',     colorHex: '#00FFFF' },
+  { key: 'voyager2', name: '旅行者2号', agency: 'NASA',     colorHex: '#00FF88' },
+  { key: 'juno',     name: '朱诺号',    agency: 'NASA',     colorHex: '#FF6B4A' },
+  { key: 'parker',   name: '帕克太阳探测器', agency: 'NASA', colorHex: '#FFD700' },
+  { key: 'galileo',  name: '伽利略号',  agency: 'NASA/ESA', colorHex: '#B983FF' },
+  { key: 'cassini',  name: '卡西尼号',  agency: 'NASA/ESA', colorHex: '#88CCFF' },
+  { key: 'rosetta',  name: '罗塞塔号',  agency: 'ESA',      colorHex: '#66DDBB' }
 ]
 
 // ──────────────────────────────────────────────────────────
@@ -155,24 +171,62 @@ function initScene() {
 // ──────────────────────────────────────────────────────────
 // 探测器轨迹
 // ──────────────────────────────────────────────────────────
-function buildProbeTrajectories() {
-  // 清除旧轨迹
+async function buildProbeTrajectories() {
+  // 清除旧轨迹（含 GLB 模型 + 标签）
   probeObjects.forEach(obj => {
-    if (obj?.tube) { scene.remove(obj.tube); obj.tube.geometry.dispose() }
-    if (obj?.dot) { scene.remove(obj.dot); obj.dot.geometry.dispose() }
+    if (obj?.line)  { scene.remove(obj.line);  obj.line.geometry.dispose() }
+    if (obj?.dot)   { scene.remove(obj.dot);   obj.dot.geometry.dispose() }
+    if (obj?.model) { scene.remove(obj.model) }
+    if (obj?.label) { scene.remove(obj.label) }
   })
   probeObjects = []
 
   if (!store.showProbeTrajectories) return
 
-  const v1Points = generateVoyager1Trajectory()
-  const v2Points = generateVoyager2Trajectory()
+  // 并行请求7个有模型的探测器真实轨迹（通过后端代理 → JPL Horizons）
+  const [v1Api, v2Api, junoApi, parkerApi, galileoApi, cassiniApi, rosettaApi] = await Promise.all([
+    getProbeTrajectory('voyager1', '1977-09-05', '2030-01-01'),
+    getProbeTrajectory('voyager2', '1977-08-20', '2030-01-01'),
+    getProbeTrajectory('juno',     '2011-08-05', '2026-12-31'),
+    getProbeTrajectory('parker',   '2018-08-12', '2026-12-31'),
+    getProbeTrajectory('galileo',  '1989-10-18', '2003-12-31'),
+    getProbeTrajectory('cassini',  '1997-10-15', '2017-12-31'),
+    getProbeTrajectory('rosetta',  '2004-03-02', '2016-12-31')
+  ])
 
-  const v1 = createProbeTrajectory(scene, v1Points, 0x00FFFF, 'voyager1')
-  const v2 = createProbeTrajectory(scene, v2Points, 0x00FF88, 'voyager2')
+  // 将 API 返回的 {time, x, y, z} 转为带 jd 的采样点；失败则回退到本地近似
+  const toSamples = (apiData) => {
+    if (!apiData || apiData.length < 2) return null
+    return apiData.map(pt => ({
+      jd: dateStrToJulian(pt.time),
+      x: pt.x, y: pt.y, z: pt.z
+    }))
+  }
 
-  if (v1) probeObjects.push(v1)
-  if (v2) probeObjects.push(v2)
+  const v1Points      = toSamples(v1Api)      || generateVoyager1Trajectory()
+  const v2Points      = toSamples(v2Api)      || generateVoyager2Trajectory()
+  const junoPoints    = toSamples(junoApi)    || generateJunoTrajectory(store.julianDay)
+  const parkerPoints  = toSamples(parkerApi)  || generateParkerTrajectory()
+  const galileoPoints = toSamples(galileoApi) || generateGalileoTrajectory()
+  const cassiniPoints = toSamples(cassiniApi) || generateCassiniTrajectory()
+  const rosettaPoints = toSamples(rosettaApi) || generateRosettaTrajectory()
+
+  // 第5个参数：GLB 模型路径；第6个参数：中文名标签
+  const v1      = createProbeTrajectory(scene, v1Points,      0x00FFFF, 'voyager1', PROBE_MODELS.voyager1, '旅行者1号')
+  const v2      = createProbeTrajectory(scene, v2Points,      0x00FF88, 'voyager2', PROBE_MODELS.voyager2, '旅行者2号')
+  const juno    = createProbeTrajectory(scene, junoPoints,    0xFF6B4A, 'juno',     PROBE_MODELS.juno,     '朱诺号')
+  const parker  = createProbeTrajectory(scene, parkerPoints,  0xFFD700, 'parker',   PROBE_MODELS.parker,   '帕克太阳探测器')
+  const galileo = createProbeTrajectory(scene, galileoPoints, 0xB983FF, 'galileo',  PROBE_MODELS.galileo,  '伽利略号')
+  const cassini = createProbeTrajectory(scene, cassiniPoints, 0x88CCFF, 'cassini',  PROBE_MODELS.cassini,  '卡西尼号')
+  const rosetta = createProbeTrajectory(scene, rosettaPoints, 0x66DDBB, 'rosetta',  PROBE_MODELS.rosetta,  '罗塞塔号')
+
+  if (v1)      probeObjects.push(v1)
+  if (v2)      probeObjects.push(v2)
+  if (juno)    probeObjects.push(juno)
+  if (parker)  probeObjects.push(parker)
+  if (galileo) probeObjects.push(galileo)
+  if (cassini) probeObjects.push(cassini)
+  if (rosetta) probeObjects.push(rosetta)
 }
 
 // ──────────────────────────────────────────────────────────
@@ -190,6 +244,9 @@ function animate(timestamp) {
   // 更新行星位置（时间推进时）
   updatePlanetPositions(planetMeshes, store.julianDay)
 
+  // 更新探测器圆点位置（时间联动）
+  updateProbePositions(probeObjects, store.julianDay, sampleTrajectoryAt)
+
   // 更新标签位置
   if (store.showLabels) updateLabels(labels)
   labels.forEach(l => { l.visible = store.showLabels })
@@ -200,6 +257,11 @@ function animate(timestamp) {
   // 行星自转
   Object.values(planetMeshes).forEach(m => {
     if (m) m.rotation.y += 0.003
+  })
+
+  // 探测器模型缓慢自转（增加立体感）
+  probeObjects.forEach(obj => {
+    if (obj?.model) obj.model.rotation.y += 0.004
   })
 
   controls.update()
@@ -327,6 +389,20 @@ onUnmounted(() => {
   line-height: 1.6;
 }
 
+/* 探测器滚动容器 */
+.probe-scroll {
+  max-height: 155px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+}
+
+/* 自定义滚动条 */
+.probe-scroll::-webkit-scrollbar { width: 4px; }
+.probe-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); border-radius: 2px; }
+.probe-scroll::-webkit-scrollbar-thumb { background: rgba(100,163,255,0.35); border-radius: 2px; }
+.probe-scroll::-webkit-scrollbar-thumb:hover { background: rgba(100,163,255,0.6); }
+
 /* 探测器列表 */
 .probe-list {
   display: flex;
@@ -335,6 +411,7 @@ onUnmounted(() => {
 }
 
 .probe-item {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -359,6 +436,12 @@ onUnmounted(() => {
 .probe-name {
   font-size: 12px;
   color: #ccc;
+}
+
+.probe-agency {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  margin-left: auto;
 }
 
 /* 状态列表 */

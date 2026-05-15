@@ -9,33 +9,25 @@
 
       <!-- 主导航 -->
       <nav class="main-nav">
-        <router-link to="/" exact class="nav-item" active-class="nav-active">
-          <span class="nav-icon">🏠</span>
-          <span class="nav-label">首页</span>
-        </router-link>
         <router-link to="/solar-system" class="nav-item" active-class="nav-active">
           <span class="nav-icon">☀️</span>
           <span class="nav-label">太阳系</span>
-        </router-link>
-        <router-link to="/mars" class="nav-item" active-class="nav-active">
-          <span class="nav-icon">🔴</span>
-          <span class="nav-label">火星</span>
         </router-link>
         <router-link to="/moon" class="nav-item" active-class="nav-active">
           <span class="nav-icon">🌙</span>
           <span class="nav-label">月球</span>
         </router-link>
-        <router-link to="/gallery" class="nav-item" active-class="nav-active">
-          <span class="nav-icon">📷</span>
-          <span class="nav-label">任务画廊</span>
+        <router-link to="/mars" class="nav-item" active-class="nav-active">
+          <span class="nav-icon">🔴</span>
+          <span class="nav-label">火星</span>
         </router-link>
       </nav>
 
       <!-- 右侧操作区 -->
       <div class="header-actions">
         <div v-if="showDate" class="current-date">
-          <span class="date-icon">📅</span>
-          <span>{{ store.currentDateStr }}</span>
+          <span class="date-icon">🕐</span>
+          <span>{{ currentSystemTime }}</span>
         </div>
         <slot name="actions" />
       </div>
@@ -44,7 +36,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSpaceStore } from '../stores/useSpaceStore.js'
 
@@ -62,6 +54,21 @@ const props = defineProps({
 const router = useRouter()
 const store = useSpaceStore()
 const isScrolled = ref(false)
+const now = ref(new Date())
+
+const WEEKDAY_NAMES = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+
+const currentSystemTime = computed(() => {
+  const d = now.value
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  const seconds = String(d.getSeconds()).padStart(2, '0')
+  const weekday = WEEKDAY_NAMES[d.getDay()]
+  return `${year}-${month}-${day} ${weekday} ${hours}:${minutes}:${seconds}`
+})
 
 const goHome = () => router.push('/')
 
@@ -69,12 +76,18 @@ const handleScroll = () => {
   isScrolled.value = window.scrollY > 30
 }
 
+let timerId = null
+
 onMounted(() => {
   window.addEventListener('scroll', handleScroll, { passive: true })
+  timerId = setInterval(() => {
+    now.value = new Date()
+  }, 1000)
 })
 
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
+  if (timerId) clearInterval(timerId)
 })
 </script>
 

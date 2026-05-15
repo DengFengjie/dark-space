@@ -17,7 +17,9 @@ export const PROBE_IDS = {
   juno: '-61',
   dawn: '-203',
   rosetta: '-226',
-  tianwen1: '-5'
+  tianwen1: '-5',
+  parker: 'PSP',  // Parker Solar Probe
+  galileo: '-77'
 }
 
 /**

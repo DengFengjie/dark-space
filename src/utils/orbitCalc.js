@@ -229,23 +229,49 @@ export function douglasPeucker(points, tolerance = 0.05) {
 }
 
 /**
- * 生成Voyager 1号近似轨迹（示例数据，用于演示）
- * 真实数据应从JPL Horizons API获取
- * 这里使用简化的向外飞行轨迹模拟
+ * 根据儒略日索引计算探针在轨迹上的位置（插值）
+ * 轨迹由带时间戳的采样点构成，通过二分查找定位区间并线性插值
+ * @param {Array<{jd:number,x:number,y:number,z:number}>} samples - 按jd升序排列的轨迹采样点
+ * @param {number} jd - 目标儒略日
+ * @returns {{x:number,y:number,z:number}|null}
+ */
+export function sampleTrajectoryAt(samples, jd) {
+  if (!samples || samples.length < 2) return null
+  if (jd <= samples[0].jd) return { x: samples[0].x, y: samples[0].y, z: samples[0].z }
+  if (jd >= samples[samples.length - 1].jd) return { x: samples[samples.length - 1].x, y: samples[samples.length - 1].y, z: samples[samples.length - 1].z }
+
+  // 二分查找
+  let lo = 0, hi = samples.length - 1
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1
+    if (samples[mid].jd <= jd) lo = mid
+    else hi = mid
+  }
+
+  const t = (jd - samples[lo].jd) / (samples[hi].jd - samples[lo].jd)
+  return {
+    x: samples[lo].x + (samples[hi].x - samples[lo].x) * t,
+    y: samples[lo].y + (samples[hi].y - samples[lo].y) * t,
+    z: samples[lo].z + (samples[hi].z - samples[lo].z) * t
+  }
+}
+
+/**
+ * 生成Voyager 1号轨迹（带时间戳的采样点，用于时间联动插值）
+ * 真实数据尽量从JPL Horizons获取，此处提供基于已知位置拟合的近似模型
  */
 export function generateVoyager1Trajectory() {
   const points = []
-  // 1977年发射，朝木星方向（后转向北黄极方向）
   const launchJD = unixToJulianLocal(new Date('1977-09-05').getTime())
-  const steps = 100
+  const steps = 200
   for (let i = 0; i <= steps; i++) {
     const t = i / steps
-    const jd = launchJD + t * 365.25 * 45 // 45年轨迹
-    // 简化模型：木星飞掠（1979）后折向北方
-    const dist = 0.5 + t * 140 // 0.5 → 140 AU
-    const angle = -0.5 + t * 0.3 // 黄道面内角度缓慢变化
-    const elev = t * 0.6 // 逐渐偏离黄道面（北方向）
+    const jd = launchJD + t * 365.25 * 49 // 49年轨迹（1977~2026）
+    const dist = 0.5 + t * 155
+    const angle = -0.5 + t * 0.35
+    const elev = t * 0.62
     points.push({
+      jd,
       x: Math.cos(angle) * dist * Math.cos(elev),
       y: Math.sin(angle) * dist * Math.cos(elev),
       z: Math.sin(elev) * dist
@@ -255,20 +281,218 @@ export function generateVoyager1Trajectory() {
 }
 
 /**
- * 生成Voyager 2号近似轨迹
+ * 生成Voyager 2号轨迹（带时间戳）
  */
 export function generateVoyager2Trajectory() {
   const points = []
-  const steps = 100
+  const launchJD = unixToJulianLocal(new Date('1977-08-20').getTime())
+  const steps = 200
   for (let i = 0; i <= steps; i++) {
     const t = i / steps
-    const dist = 0.5 + t * 120 // 0.5 → 120 AU
-    const angle = 1.2 - t * 0.4 // 偏向南方
-    const elev = -t * 0.4 // 偏离黄道面（南方向）
+    const jd = launchJD + t * 365.25 * 49
+    const dist = 0.5 + t * 135
+    const angle = 1.2 - t * 0.45
+    const elev = -t * 0.38
     points.push({
+      jd,
       x: Math.cos(angle) * dist * Math.cos(elev),
       y: Math.sin(angle) * dist * Math.cos(elev),
       z: Math.sin(elev) * dist
+    })
+  }
+  return points
+}
+
+/**
+ * 生成新视野号（New Horizons）轨迹（带时间戳）
+ * 2006年发射，2015年飞越冥王星，继续向柯伊伯带前进
+ */
+export function generateNewHorizonsTrajectory() {
+  const points = []
+  const launchJD = unixToJulianLocal(new Date('2006-01-19').getTime())
+  const steps = 200
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const jd = launchJD + t * 365.25 * 20
+    // 朝人马座方向（银河中心），相对黄道面偏低角度
+    const dist = 0.5 + t * 67
+    const angle = -1.8 + t * 0.15
+    const elev = -0.15 + t * 0.08
+    points.push({
+      jd,
+      x: Math.cos(angle) * dist * Math.cos(elev),
+      y: Math.sin(angle) * dist * Math.cos(elev),
+      z: Math.sin(elev) * dist
+    })
+  }
+  return points
+}
+
+/**
+ * 生成朱诺号（Juno）近似轨迹（带时间戳）
+ * 2011年发射，2016年进入木星极轨道——简化显示为绕木星的螺旋轨道
+ */
+export function generateJunoTrajectory(jdNow) {
+  const points = []
+  const launchJD = unixToJulianLocal(new Date('2011-08-05').getTime())
+  const steps = 160
+  // 木星轨道半径约 5.2 AU
+  const jupiterOrbitBase = 5.2
+  const jupiterPeriod = 4332.59 // 天
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const jd = launchJD + t * 365.25 * 15
+    // 木星在轨道上的位置
+    const jupiterAngle = ((jd - 2451545.0) / jupiterPeriod) * Math.PI * 2
+    const jx = Math.cos(jupiterAngle) * jupiterOrbitBase
+    const jy = Math.sin(jupiterAngle) * jupiterOrbitBase
+    // 探测器围绕木星的微小偏移（<0.05 AU）
+    const offset = (i > steps * 0.35) ? 0.03 * Math.cos(t * 40) : 0
+    points.push({
+      jd,
+      x: jx + offset * Math.cos(jupiterAngle + 0.5),
+      y: jy + offset * Math.sin(jupiterAngle + 0.5),
+      z: 0.02 * Math.sin(t * 30)
+    })
+  }
+  return points
+}
+
+/**
+ * 生成帕克太阳探测器（Parker Solar Probe）轨迹（带时间戳）
+ * 2018年发射，多次金星飞越以逐步接近太阳
+ */
+export function generateParkerTrajectory() {
+  const points = []
+  const launchJD = unixToJulianLocal(new Date('2018-08-12').getTime())
+  const steps = 160
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const jd = launchJD + t * 365.25 * 8
+    // 近日点逐步降低：0.25→0.046 AU
+    const periDist = 0.25 - t * 0.2
+    const angle = t * Math.PI * 2 * 6 // 约6圈完整轨道
+    // 高度椭圆轨道
+    const dist = periDist + t * 0.15 * (1 - Math.cos(angle * 0.5)) * 0.5
+    const elev = t * 0.08 * Math.sin(angle)
+    points.push({
+      jd,
+      x: Math.cos(angle) * (periDist + 0.15),
+      y: Math.sin(angle) * (periDist + 0.15) * 0.7,
+      z: Math.sin(elev) * 0.2
+    })
+  }
+  return points
+}
+
+/**
+ * 生成伽利略号（Galileo）近似轨迹（带时间戳）
+ * 1989年发射，1995年抵达木星，在木星系统中执行多年探测
+ */
+export function generateGalileoTrajectory() {
+  const points = []
+  const launchJD = unixToJulianLocal(new Date('1989-10-18').getTime())
+  const steps = 160
+  const jupiterOrbitBase = 5.2
+  const jupiterPeriod = 4332.59
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const jd = launchJD + t * 365.25 * 14
+    const jupiterAngle = ((jd - 2451545.0) / jupiterPeriod) * Math.PI * 2
+    const jx = Math.cos(jupiterAngle) * jupiterOrbitBase
+    const jy = Math.sin(jupiterAngle) * jupiterOrbitBase
+    // 巡航段：0-0.35 为飞往木星；之后为绕木星
+    const cruiseDist = Math.min(t * 18, jupiterOrbitBase)
+    const cruiseAngle = -0.8 + t * 0.6
+    const offset = (t > 0.35) ? 0.04 * Math.cos(t * 30 + 0.8) : 0
+    points.push({
+      jd,
+      x: t < 0.35 ? Math.cos(cruiseAngle) * cruiseDist : jx + offset,
+      y: t < 0.35 ? Math.sin(cruiseAngle) * cruiseDist * 0.6 : jy + offset * 0.7,
+      z: 0.03 * Math.sin(t * 25)
+    })
+  }
+  return points
+}
+
+/**
+ * 生成卡西尼号（Cassini）近似轨迹（带时间戳）
+ * 1997年发射，2004年抵达土星，2017年结束使命坠入土星
+ */
+export function generateCassiniTrajectory() {
+  const points = []
+  const launchJD = unixToJulianLocal(new Date('1997-10-15').getTime())
+  const steps = 200
+  const saturnOrbitBase = 9.54
+  const saturnPeriod = 10759.22
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const jd = launchJD + t * 365.25 * 20
+    const saturnAngle = ((jd - 2451545.0) / saturnPeriod) * Math.PI * 2
+    const sx = Math.cos(saturnAngle) * saturnOrbitBase
+    const sy = Math.sin(saturnAngle) * saturnOrbitBase
+    const cruiseDist = Math.min(t * 12, saturnOrbitBase)
+    const cruiseAngle = -0.3 + t * 0.5
+    const offset = (t > 0.33) ? 0.05 * Math.cos(t * 35 + 1.2) : 0
+    points.push({
+      jd,
+      x: t < 0.33 ? Math.cos(cruiseAngle) * cruiseDist : sx + offset,
+      y: t < 0.33 ? Math.sin(cruiseAngle) * cruiseDist * 0.5 : sy + offset * 0.6,
+      z: 0.04 * Math.sin(t * 28 + 0.5)
+    })
+  }
+  return points
+}
+
+/**
+ * 生成黎明号（Dawn）近似轨迹（带时间戳）
+ * 2007年发射，2011-2012探测灶神星，2015抵达谷神星，位于小行星带
+ */
+export function generateDawnTrajectory() {
+  const points = []
+  const launchJD = unixToJulianLocal(new Date('2007-09-27').getTime())
+  const steps = 160
+  const beltBase = 2.5
+  const beltPeriod = 1681
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const jd = launchJD + t * 365.25 * 11
+    const beltAngle = ((jd - 2451545.0) / beltPeriod) * Math.PI * 2
+    const bx = Math.cos(beltAngle) * beltBase
+    const by = Math.sin(beltAngle) * beltBase
+    const cruiseDist = Math.min(t * 7, beltBase * 0.9)
+    const cruiseAngle = -1.2 + t * 0.4
+    const offset = (t > 0.35) ? 0.06 * Math.cos(t * 25 + 1.5) : 0
+    points.push({
+      jd,
+      x: t < 0.35 ? Math.cos(cruiseAngle) * cruiseDist : bx + offset,
+      y: t < 0.35 ? Math.sin(cruiseAngle) * cruiseDist * 0.7 : by + offset * 0.5,
+      z: 0.06 * Math.sin(t * 15 + 1.0)
+    })
+  }
+  return points
+}
+
+/**
+ * 生成罗塞塔号（Rosetta）近似轨迹（带时间戳）
+ * 2004年发射，2014年抵达67P彗星，经历多次行星引力弹弓
+ */
+export function generateRosettaTrajectory() {
+  const points = []
+  const launchJD = unixToJulianLocal(new Date('2004-03-02').getTime())
+  const steps = 200
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const jd = launchJD + t * 365.25 * 12
+    const baseDist = 1.5 + Math.sin(t * Math.PI * 3) * 1.2
+    const angle = t * Math.PI * 2 * 2.5
+    const wobble = Math.sin(t * Math.PI * 5) * 0.8
+    const elev = Math.cos(t * Math.PI * 3) * 0.5
+    points.push({
+      jd,
+      x: Math.cos(angle + wobble * 0.3) * (baseDist + wobble * 0.6),
+      y: Math.sin(angle + wobble * 0.3) * (baseDist * 0.85 + wobble * 0.4),
+      z: elev * 1.2
     })
   }
   return points

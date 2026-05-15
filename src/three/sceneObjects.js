@@ -3,8 +3,25 @@
  * 包括：太阳、行星、轨道线、星空、探测器轨迹、标签
  */
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { calcPlanetPosition, generateOrbitPath } from '../utils/orbitCalc.js'
 import { eclipticToRender } from '../utils/scaleHelper.js'
+
+// ────────────────────────────────────────────────────────
+// 探测器模型配置表（GLB 文件路径，空格需 %20 编码）
+// ────────────────────────────────────────────────────────
+export const PROBE_MODELS = {
+  voyager1: '/models/probes/Voyager_Probe.glb',
+  voyager2: '/models/probes/Voyager_Probe.glb',
+  juno:     '/models/probes/Juno.glb',
+  parker:   '/models/probes/Parker_Solar_Probe.glb',
+  galileo:  '/models/probes/Galileo.glb',
+  cassini:  '/models/probes/Cassini_Huygens.glb',
+  rosetta:  '/models/probes/Rosetta.glb',
+}
+
+// 共享 GLTF 加载器实例（避免重复创建）
+const _gltfLoader = new GLTFLoader()
 
 // ── 渲染坐标系转换：黄道坐标(AU) → Three.js场景坐标 ──
 function auToScene(x, y, z) {
@@ -405,32 +422,39 @@ export function updatePlanetPositions(planetMeshes, jd) {
 }
 
 /**
- * 创建探测器轨迹管线
+ * 创建探测器轨迹虚线（支持时间联动 + 真实 GLB 模型 + 中文名标签）
  * @param {THREE.Scene} scene
- * @param {Array<{x,y,z}>} points - 渲染坐标点（已转换）
- * @param {number} color - 轨迹颜色
- * @param {string} name - 探测器名称
- * @returns {THREE.Mesh|null}
+ * @param {Array<{x,y,z,jd?:number}>} points   - 原始数据点（AU）
+ * @param {number} color       - 轨迹颜色（hex 数值）
+ * @param {string} name        - 探测器 key（英文）
+ * @param {string|null} modelFile  - GLB 文件路径，null 则保留小球
+ * @param {string} labelName   - 显示的中文名称，空串则不创建标签
+ * @returns {{ line, dot, model, label, pts, samples }|null}
  */
-export function createProbeTrajectory(scene, points, color = 0x00FFFF, name = 'probe') {
+export function createProbeTrajectory(scene, points, color = 0x00FFFF, name = 'probe', modelFile = null, labelName = '') {
   if (!points || points.length < 2) return null
 
   const pts = points.map(p => auToScene(p.x, p.y, p.z))
   const curve = new THREE.CatmullRomCurve3(pts)
   const segments = Math.min(pts.length * 3, 600)
+  const curvePoints = curve.getPoints(segments)
 
-  const tubeGeo = new THREE.TubeGeometry(curve, segments, 0.25, 6, false)
-  const tubeMat = new THREE.MeshBasicMaterial({
+  const lineGeo = new THREE.BufferGeometry().setFromPoints(curvePoints)
+  const lineMat = new THREE.LineDashedMaterial({
     color,
     transparent: true,
-    opacity: 0.75
+    opacity: 0.7,
+    dashSize: 4,
+    gapSize: 2,
+    linewidth: 1
   })
 
-  const tube = new THREE.Mesh(tubeGeo, tubeMat)
-  tube.name = `trajectory_${name}`
-  scene.add(tube)
+  const line = new THREE.Line(lineGeo, lineMat)
+  line.computeLineDistances()
+  line.name = `trajectory_${name}`
+  scene.add(line)
 
-  // 轨迹末端亮点（当前位置标记）
+  // 小球占位标记（加载模型成功后隐藏，失败则保留）
   const dotGeo = new THREE.SphereGeometry(1.2, 16, 16)
   const dotMat = new THREE.MeshBasicMaterial({ color })
   const dot = new THREE.Mesh(dotGeo, dotMat)
@@ -439,7 +463,48 @@ export function createProbeTrajectory(scene, points, color = 0x00FFFF, name = 'p
   dot.name = `probe_dot_${name}`
   scene.add(dot)
 
-  return { tube, dot, curve, pts }
+  // 中文名标签（跟随 dot/model 位置）
+  let label = null
+  if (labelName) {
+    const colorStr = '#' + color.toString(16).padStart(6, '0')
+    label = createTextLabel(labelName, colorStr)
+    label.position.copy(last)
+    label.position.y += 4
+    label.name = `probe_label_${name}`
+    scene.add(label)
+  }
+
+  // 返回对象（model 字段异步填入）
+  const obj = { line, dot, model: null, label, pts, samples: points }
+
+  // 异步加载真实 GLB 模型（必须使用绝对 URL，否则 Three.js 内部 new URL(sub, base) 会因 base 是相对路径而报错）
+  if (modelFile) {
+    const absoluteUrl = new URL(modelFile, window.location.href).href
+    _gltfLoader.load(
+      absoluteUrl,
+      (gltf) => {
+        const model = gltf.scene
+        model.scale.setScalar(1.5)
+        model.position.copy(dot.position)
+        model.name = `probe_model_${name}`
+        model.traverse(child => {
+          if (child.isMesh) {
+            child.castShadow = false
+            child.receiveShadow = false
+          }
+        })
+        scene.add(model)
+        dot.visible = false   // 隐藏占位小球
+        obj.model = model
+      },
+      undefined,
+      (err) => {
+        console.warn(`[probe] 模型加载失败 (${name}):`, err.message ?? err)
+      }
+    )
+  }
+
+  return obj
 }
 
 /**
@@ -497,5 +562,30 @@ export function updateLabels(labels) {
     const r = cfg ? cfg.radius : 5
     label.position.copy(mesh.position)
     label.position.y += r + 4
+  }
+}
+
+/**
+ * 更新探测器当前位置标记到轨迹上对应时间的点
+ * @param {Array} probeObjects - [{ tube, dot, samples }]
+ * @param {number} jd - 当前儒略日
+ * @param {Function} sampleFn - 插值函数 sampleTrajectoryAt
+ */
+export function updateProbePositions(probeObjects, jd, sampleFn) {
+  if (!sampleFn) return
+  for (const obj of probeObjects) {
+    if (!obj?.dot || !obj?.samples) continue
+    const pos = sampleFn(obj.samples, jd)
+    if (pos) {
+      const sp = auToScene(pos.x, pos.y, pos.z)
+      obj.dot.position.copy(sp)
+      // 同步更新真实模型位置
+      if (obj.model) obj.model.position.copy(sp)
+      // 同步更新中文名标签位置（标签在模型/小球上方 4 个单位）
+      if (obj.label) {
+        obj.label.position.copy(sp)
+        obj.label.position.y += 4
+      }
+    }
   }
 }

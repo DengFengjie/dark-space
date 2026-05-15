@@ -75,22 +75,24 @@ router.get('/ephemeris', async (req, res) => {
  * 构建 JPL Horizons Web API URL
  */
 function buildHorizonsUrl(target, startTime, stopTime, stepSize) {
-  const params = new URLSearchParams({
-    format: 'json',
-    COMMAND: `'${target}'`,
-    OBJ_DATA: 'NO',
-    MAKE_EPHEM: 'YES',
-    EPHEM_TYPE: 'VECTORS',
-    CENTER: '500@10',           // 太阳系质心
-    START_TIME: `'${startTime}'`,
-    STOP_TIME: `'${stopTime}'`,
-    STEP_SIZE: `'${stepSize}'`,
-    VEC_TABLE: '2',             // 输出 X,Y,Z 位置
-    REF_PLANE: 'ECLIPTIC',      // 黄道坐标
-    REF_SYSTEM: 'J2000',
-    VEC_LABELS: 'YES',
-    OUT_UNITS: 'AU-D'           // 天文单位-天
-  })
+  // 必须手动拼接参数，URLSearchParams 会将 COMMAND / START_TIME 等参数中的单引号编码为 %27，
+  // 导致 JPL Horizons API 返回错误。
+  const params = [
+    'format=json',
+    `COMMAND='${target}'`,
+    'OBJ_DATA=NO',
+    'MAKE_EPHEM=YES',
+    'EPHEM_TYPE=VECTORS',
+    'CENTER=500@10',           // 太阳系质心
+    `START_TIME='${startTime}'`,
+    `STOP_TIME='${stopTime}'`,
+    `STEP_SIZE='${stepSize}'`,
+    'VEC_TABLE=2',             // 输出 X,Y,Z 位置
+    'REF_PLANE=ECLIPTIC',      // 黄道坐标
+    'REF_SYSTEM=J2000',
+    'VEC_LABELS=YES',
+    'OUT_UNITS=AU-D'           // 天文单位-天
+  ].join('&')
   return `https://ssd.jpl.nasa.gov/api/horizons.api?${params}`
 }
 

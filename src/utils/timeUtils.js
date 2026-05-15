@@ -61,6 +61,13 @@ export function isoToUnix(isoStr) {
 }
 
 /**
+ * ISO日期字符串（如 "2024-01-15"）转儒略日
+ */
+export function dateStrToJulian(dateStr) {
+  return (new Date(dateStr).getTime() / 86400000) + 2440587.5
+}
+
+/**
  * 儒略日转公历日期对象
  * @param {number} jd - 儒略日
  * @returns {{ year, month, day }}

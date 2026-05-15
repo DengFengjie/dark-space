@@ -34,26 +34,49 @@ _gltfLoader.setDRACOLoader(_dracoLoader)
 
 /**
  * 加载单个探测器 GLB 模型，返回 Promise<THREE.Group|null>
+ * 使用 fetch 获取 ArrayBuffer，手动修复 GLB JSON 块中的 null 字节填充问题
+ * （部分建模工具用 0x00 填充代替规范要求的 0x20，导致 JSON.parse 报错）
  * 失败时 resolve(null)，不抛出异常
  */
 export function loadProbeModel(modelFile) {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     if (!modelFile) { resolve(null); return }
     let url
     try { url = new URL(modelFile, window.location.href).href } catch { url = modelFile }
-    _gltfLoader.load(
-      url,
-      (gltf) => {
+    try {
+      const res = await fetch(url)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const buffer = await res.arrayBuffer()
+
+      // 修复 GLB JSON 块的 null 字节填充
+      // GLB 头 12 字节：magic(4) + version(4) + totalLength(4)
+      // JSON 块：chunkLength(4) + chunkType(4) + chunkData
+      const view = new DataView(buffer)
+      const magic = view.getUint32(0, true)
+      if (magic === 0x46546C67) {  // 确认是合法 GLB（magic = "glTF"）
+        const jsonChunkLen = view.getUint32(12, true)
+        const jsonStart = 20  // 12(头) + 4(长度字段) + 4(类型字段)
+        const bytes = new Uint8Array(buffer)
+        for (let i = jsonStart; i < jsonStart + jsonChunkLen; i++) {
+          if (bytes[i] === 0) bytes[i] = 32  // null(0x00) → 空格(0x20)
+        }
+      }
+
+      _gltfLoader.parse(buffer, '', (gltf) => {
         const model = gltf.scene
         model.scale.setScalar(1.5)
         model.traverse(child => {
           if (child.isMesh) { child.castShadow = false; child.receiveShadow = false }
         })
         resolve(model)
-      },
-      undefined,
-      (err) => { console.warn(`[probe] 模型加载失败 (${modelFile}):`, err); resolve(null) }
-    )
+      }, (err) => {
+        console.warn(`[probe] 模型解析失败 (${modelFile}):`, err)
+        resolve(null)
+      })
+    } catch (err) {
+      console.warn(`[probe] 模型加载失败 (${modelFile}):`, err)
+      resolve(null)
+    }
   })
 }
 

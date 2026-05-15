@@ -26,7 +26,7 @@
       <div class="panel-card">
         <div class="panel-title">☀️ 太阳系全景</div>
         <div class="celestial-list">
-          <div v-for="body in celestialBodies" :key="body.key" class="celestial-item">
+          <div v-for="body in celestialBodies" :key="body.key" class="celestial-item" @click="onCelestialClick(body.key)">
             <span class="celestial-icon" :style="{ background: body.color }"></span>
             <span class="celestial-name">{{ body.name }}</span>
             <span class="celestial-tag">{{ body.type }}</span>
@@ -44,6 +44,7 @@
               :key="probe.key"
               class="probe-item"
               :class="{ active: store.showProbeTrajectories }"
+              @click="onProbeClick(probe.key)"
             >
               <span class="probe-dot" :style="{ background: probe.colorHex }"></span>
               <span class="probe-name">{{ probe.name }}</span>
@@ -389,6 +390,68 @@ function onFocusBody(info) {
 }
 
 // ──────────────────────────────────────────────────────────
+// 左侧面板点击天体 → 聚焦 + 弹出介绍
+// ──────────────────────────────────────────────────────────
+function onCelestialClick(bodyKey) {
+  let info = null
+  let mesh = null
+
+  if (bodyKey === 'sun') {
+    mesh = scene?.getObjectByName('太阳')
+    info = mesh?.userData?.info
+  } else {
+    mesh = planetMeshes[bodyKey]
+    info = mesh?.userData?.info
+  }
+
+  if (!info) return
+
+  // 弹出右侧介绍面板
+  highlight?.deselect()
+  if (mesh) highlight?.select(mesh)
+  selectedBodyInfo.value = { ...info, type: mesh?.userData?.type || 'planet' }
+  store.setSelectedBody(info)
+
+  // 相机飞行到天体
+  onFocusBody(info)
+}
+
+// ──────────────────────────────────────────────────────────
+// 左侧面板点击探测器 → 聚焦 + 弹出介绍
+// ──────────────────────────────────────────────────────────
+function onProbeClick(probeKey) {
+  const info = PROBE_INFO[probeKey]
+  if (!info) return
+
+  // 查找当前场景中的探测器对象
+  const obj = probeObjects.find(o =>
+    (o?.dot?.name === `probe_dot_${probeKey}`) ||
+    (o?.model?.name === `probe_model_${probeKey}`)
+  )
+
+  const target = obj?.model || obj?.dot
+  if (!target) return
+
+  // 弹出右侧介绍面板
+  highlight?.deselect()
+  if (obj?.dot) highlight?.select(obj.dot)
+  selectedBodyInfo.value = { ...info, type: 'probe' }
+  store.setSelectedBody(info)
+
+  // 相机飞行到探测器当前位置
+  const bodyPos = target.position.clone()
+  const dist = 60
+
+  const camPos = new THREE.Vector3(
+    bodyPos.x + dist * 0.5,
+    bodyPos.y + dist * 0.4,
+    bodyPos.z + dist
+  )
+
+  flyToPosition(camera, controls, camPos, bodyPos, 1400)
+}
+
+// ──────────────────────────────────────────────────────────
 // 监听 store 变化
 // ──────────────────────────────────────────────────────────
 watch(() => store.showProbeTrajectories, () => buildProbeTrajectories())
@@ -487,7 +550,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 3px 0;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.celestial-item:hover {
+  background: rgba(100, 163, 255, 0.1);
 }
 
 .celestial-icon {
@@ -538,7 +607,11 @@ onUnmounted(() => {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
   opacity: 0.4;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s, background 0.2s;
+  cursor: pointer;
+}
+.probe-item:hover {
+  background: rgba(100, 163, 255, 0.1);
 }
 
 .probe-item.active {

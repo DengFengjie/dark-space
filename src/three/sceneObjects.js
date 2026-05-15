@@ -271,6 +271,144 @@ export const PLANET_CONFIG = {
 }
 
 // ────────────────────────────────────────────────────────
+// 探测器信息配置表（用于 InfoPanel 展示）
+// ────────────────────────────────────────────────────────
+export const PROBE_INFO = {
+  voyager1: {
+    name: '旅行者1号', nameEn: 'Voyager 1',
+    description: 'NASA于1977年发射的无人外太阳系探测器，是人类首个进入星际空间的航天器。目前以约17 km/s的速度飞离太阳系，携带"金唱片"记录地球文明信息。',
+    stats: {
+      '发射时间': '1977-09-05',
+      '发射机构': 'NASA / JPL',
+      '任务目标': '飞越木星、土星，探索外太阳系',
+      '目前状态': '星际空间运行中',
+      '距地球': '约 160 AU',
+      '速度': '~17 km/s'
+    }
+  },
+  voyager2: {
+    name: '旅行者2号', nameEn: 'Voyager 2',
+    description: 'NASA于1977年发射，是目前唯一造访过天王星和海王星的航天器。2018年进入星际空间。',
+    stats: {
+      '发射时间': '1977-08-20',
+      '发射机构': 'NASA / JPL',
+      '任务目标': '飞越木星、土星、天王星、海王星',
+      '目前状态': '星际空间运行中',
+      '距地球': '约 135 AU',
+      '速度': '~15 km/s'
+    }
+  },
+  juno: {
+    name: '朱诺号', nameEn: 'Juno',
+    description: 'NASA于2011年发射的木星探测器，旨在研究木星的大气、磁场和内部结构，揭示气态巨行星的形成与演化。',
+    stats: {
+      '发射时间': '2011-08-05',
+      '发射机构': 'NASA / JPL',
+      '任务目标': '研究木星大气、磁场与内部结构',
+      '目前状态': '木星轨道运行中',
+      '轨道周期': '约 53 天',
+      '预计结束': '2025年后（可能延长）'
+    }
+  },
+  parker: {
+    name: '帕克太阳探测器', nameEn: 'Parker Solar Probe',
+    description: 'NASA于2018年发射的历史性探测器，以逼近太阳日冕，是人类首个"触摸太阳"的航天器，飞行速度超过任何人造物体。',
+    stats: {
+      '发射时间': '2018-08-12',
+      '发射机构': 'NASA / APL',
+      '任务目标': '近距离探测太阳日冕与太阳风',
+      '目前状态': '近日轨道运行中',
+      '最接近太阳': '约 49 太阳半径',
+      '最高速度': '~192 km/s'
+    }
+  },
+  galileo: {
+    name: '伽利略号', nameEn: 'Galileo',
+    description: 'NASA于1989年发射的木星轨道器，首次详细探测了木星及其卫星系统，发现了木卫二冰下海洋的证据。2003年坠入木星大气销毁。',
+    stats: {
+      '发射时间': '1989-10-18',
+      '发射机构': 'NASA / JPL',
+      '任务目标': '轨道探测木星及其卫星',
+      '目前状态': '2003年任务结束（坠入木星）',
+      '主要发现': '木卫二冰下海洋',
+      '任务时长': '约 14 年'
+    }
+  },
+  cassini: {
+    name: '卡西尼号', nameEn: 'Cassini-Huygens',
+    description: 'NASA/ESA/ASI合作的土星探测器，携带惠更斯探针成功着陆土卫六。详细研究了土星环、大气及卫星系统。2017年"盛大终章"坠入土星大气。',
+    stats: {
+      '发射时间': '1997-10-15',
+      '发射机构': 'NASA / ESA / ASI',
+      '任务目标': '轨道探测土星及其卫星',
+      '目前状态': '2017年任务结束（坠入土星）',
+      '惠更斯着陆': '2005-01-14 登陆土卫六',
+      '任务时长': '约 20 年'
+    }
+  },
+  rosetta: {
+    name: '罗塞塔号', nameEn: 'Rosetta',
+    description: 'ESA于2004年发射的彗星探测器，携带着陆器"菲莱"成功登陆67P/丘留莫夫-格拉西缅科彗星，是人类首个环绕并着陆彗星的航天器。',
+    stats: {
+      '发射时间': '2004-03-02',
+      '发射机构': 'ESA',
+      '任务目标': '环绕并着陆67P彗星',
+      '目前状态': '2016年任务结束（降落在彗星表面）',
+      '菲莱着陆': '2014-11-12',
+      '任务时长': '约 12 年'
+    }
+  },
+  pioneer: {
+    name: '先驱者10号', nameEn: 'Pioneer 10',
+    description: 'NASA于1972年发射的人类首个穿越小行星带的探测器，首次近距离探测木星，携带标注人类信息的镀铝板。2003年失联。',
+    stats: {
+      '发射时间': '1972-03-02',
+      '发射机构': 'NASA / ARC',
+      '任务目标': '首次穿越小行星带，飞越木星',
+      '目前状态': '2003年失联（方向: 金牛座）',
+      '最近木星': '1973-12-03',
+      '速度': '~12 km/s'
+    }
+  },
+  ace: {
+    name: '先进成分探测器', nameEn: 'ACE (Advanced Composition Explorer)',
+    description: 'NASA于1997年发射的空间天气与宇宙粒子探测器，位于日地L1拉格朗日点，对太阳风和宇宙射线的成分进行实时监测，是空间天气预报的关键卫星。',
+    stats: {
+      '发射时间': '1997-08-25',
+      '发射机构': 'NASA / GSFC',
+      '任务目标': '监测太阳风与宇宙射线成分',
+      '目前状态': '日地L1点运行中',
+      '位置': '日地L1拉格朗日点',
+      '轨道': 'Lissajous轨道（~150万km太阳方向）'
+    }
+  },
+  deepImpact: {
+    name: '深度撞击号', nameEn: 'Deep Impact',
+    description: 'NASA于2005年发射的彗星探测任务，以撞击器高速撞击坦普尔1号彗星，分析喷射物成分来研究彗星内部结构。',
+    stats: {
+      '发射时间': '2005-01-12',
+      '发射机构': 'NASA / JPL',
+      '任务目标': '撞击探测坦普尔1号彗星',
+      '目前状态': '2013年任务结束（失联）',
+      '撞击时间': '2005-07-04',
+      '撞击速度': '~10.2 km/s'
+    }
+  },
+  marsGlobalSurveyor: {
+    name: '火星全球勘测者', nameEn: 'Mars Global Surveyor',
+    description: 'NASA于1996年发射的火星轨道探测器，对火星进行了长达十年的高分辨率全球测绘，为后续火星探测提供了关键数据。',
+    stats: {
+      '发射时间': '1996-11-07',
+      '发射机构': 'NASA / JPL',
+      '任务目标': '高分辨率火星全球测绘',
+      '目前状态': '2006年任务结束（失联）',
+      '任务时长': '约 10 年',
+      '主要成就': '绘制火星三维全球地形图'
+    }
+  }
+}
+
+// ────────────────────────────────────────────────────────
 // 创建函数
 // ────────────────────────────────────────────────────────
 
@@ -511,9 +649,10 @@ export function updatePlanetPositions(planetMeshes, jd) {
  * @param {string} name       - 探测器 key（英文）
  * @param {THREE.Group|null} model - 已加载的 GLB 模型，null 则使用彩色小球
  * @param {string} labelName  - 显示的中文名称，空串则不创建标签
+ * @param {Object|null} probeInfo - 探测器信息对象（用于 InfoPanel 展示）
  * @returns {{ line, dot, model, label, pts, samples }|null}
  */
-export function createProbeTrajectory(scene, points, color = 0x00FFFF, name = 'probe', model = null, labelName = '') {
+export function createProbeTrajectory(scene, points, color = 0x00FFFF, name = 'probe', model = null, labelName = '', probeInfo = null) {
   if (!points || points.length < 2) return null
 
   const pts = points.map(p => auToScene(p.x, p.y, p.z))
@@ -544,12 +683,20 @@ export function createProbeTrajectory(scene, points, color = 0x00FFFF, name = 'p
   const dot = new THREE.Mesh(dotGeo, dotMat)
   dot.position.copy(last)
   dot.name = `probe_dot_${name}`
+  // 为小球设置探测器 info（用于点击选中 → InfoPanel 展示）
+  if (probeInfo) {
+    dot.userData = { type: 'probe', key: name, info: { ...probeInfo, type: 'probe' } }
+  }
   scene.add(dot)
 
   // 添加预加载的 GLB 模型，成功则隐藏小球
   if (model) {
     model.position.copy(last)
     model.name = `probe_model_${name}`
+    // 为模型设置探测器 info（用于点击选中 → InfoPanel 展示）
+    if (probeInfo) {
+      model.userData = { type: 'probe', key: name, info: { ...probeInfo, type: 'probe' } }
+    }
 
     scene.add(model)
     dot.visible = false

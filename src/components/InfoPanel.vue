@@ -56,7 +56,7 @@
 
       <!-- 操作按钮 -->
       <div class="panel-actions">
-        <button class="action-btn primary" @click="$emit('focus', body)">
+<button v-if="!isProbe" class="action-btn primary" @click="$emit('focus', body)">
           🎯 聚焦观察
         </button>
         <button
@@ -89,6 +89,7 @@ const router = useRouter()
 
 const bodyIcon = computed(() => {
   if (!props.body) return '⭕'
+  if (props.body.type === 'probe') return '🛰️'
   const icons = {
     '太阳': '☀️', Sun: '☀️',
     '水星': '⚫', Mercury: '⚫',
@@ -115,6 +116,8 @@ const bodyTypeName = computed(() => {
   }
   return typeMap[props.body.type] || '天体'
 })
+
+const isProbe = computed(() => props.body?.type === 'probe')
 
 const goToGallery = () => {
   router.push('/gallery')

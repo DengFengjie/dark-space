@@ -25,7 +25,13 @@
     <div class="side-panel">
       <div class="panel-card">
         <div class="panel-title">☀️ 太阳系全景</div>
-        <div class="panel-desc">基于NASA官方开普勒轨道根数，实时计算八大行星在黄道坐标系下的精确日心位置。太阳系包含8颗行星、数百颗卫星、以及无数小行星与彗星，是一个由引力精密编织的宏伟动力学系统。拖动时间轴可观察行星公转运动。</div>
+        <div class="celestial-list">
+          <div v-for="body in celestialBodies" :key="body.key" class="celestial-item">
+            <span class="celestial-icon" :style="{ background: body.color }"></span>
+            <span class="celestial-name">{{ body.name }}</span>
+            <span class="celestial-tag">{{ body.type }}</span>
+          </div>
+        </div>
       </div>
 
       <div class="panel-card probes-card">
@@ -75,7 +81,7 @@ import { initThree, disposeThree, flyToPosition } from '../three/initThree.js'
 import {
   createStarfield, createSun, createPlanet, createOrbitLine,
   updatePlanetPositions, createProbeTrajectory, addPlanetLabel,
-  updateLabels, updateProbePositions, PLANET_CONFIG, PROBE_MODELS, loadProbeModel
+  updateLabels, updateProbePositions, PLANET_CONFIG, PROBE_MODELS, PROBE_INFO, loadProbeModel
 } from '../three/sceneObjects.js'
 import { BodyRaycaster, SelectionHighlight } from '../three/controls.js'
 import {
@@ -110,6 +116,24 @@ let raycaster, highlight
 // UI状态
 const hoveredName = ref('')
 const selectedBodyInfo = ref(null)
+
+// 天体列表（太阳 + 八大行星）
+const celestialBodies = computed(() => {
+  const order = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune']
+  const planets = order.map(key => {
+    const cfg = PLANET_CONFIG[key]
+    return {
+      key,
+      name: cfg.name,
+      type: '行星',
+      color: '#' + cfg.color.toString(16).padStart(6, '0')
+    }
+  })
+  return [
+    { key: 'sun', name: '太阳', type: '恒星', color: '#FFD700' },
+    ...planets
+  ]
+})
 
 // 探测器配置（与 PROBE_MODELS 保持一致，仅保留有真实模型的探测器）
 const probeList = [
@@ -251,18 +275,18 @@ async function buildProbeTrajectories() {
   const deepImpactPoints = toSamples(deepImpactApi) || generateDeepImpactTrajectory()
   const mgsPoints        = toSamples(mgsApi)        || generateMarsGlobalSurveyorTrajectory()
 
-  // 创建轨迹，传入预加载模型（加载成功则显示模型，失败则显示彩色小球）
-  const v1         = createProbeTrajectory(scene, v1Points,         0x00FFFF, 'voyager1',           v1Model,         '旅行者1号')
-  const v2         = createProbeTrajectory(scene, v2Points,         0x00FF88, 'voyager2',           v2Model,         '旅行者2号')
-  const juno       = createProbeTrajectory(scene, junoPoints,       0xFF6B4A, 'juno',               junoModel,       '朱诺号')
-  const parker     = createProbeTrajectory(scene, parkerPoints,     0xFFD700, 'parker',             parkerModel,     '帕克太阳探测器')
-  const galileo    = createProbeTrajectory(scene, galileoPoints,    0xB983FF, 'galileo',            galileoModel,    '伽利略号')
-  const cassini    = createProbeTrajectory(scene, cassiniPoints,    0x88CCFF, 'cassini',            cassiniModel,    '卡西尼号')
-  const rosetta    = createProbeTrajectory(scene, rosettaPoints,    0x66DDBB, 'rosetta',            rosettaModel,    '罗塞塔号')
-  const pioneer    = createProbeTrajectory(scene, pioneerPoints,    0xFF9944, 'pioneer',            pioneerModel,    '先驱者10号')
-  const ace        = createProbeTrajectory(scene, acePoints,        0x44FFBB, 'ace',                aceModel,        '先进成分探测器')
-  const deepImpact = createProbeTrajectory(scene, deepImpactPoints, 0xFF4488, 'deepImpact',         deepImpactModel, '深度撞击号')
-  const mgs        = createProbeTrajectory(scene, mgsPoints,        0xFF6644, 'marsGlobalSurveyor', mgsModel,        '火星全球勘测者')
+  // 创建轨迹，传入预加载模型（加载成功则显示模型，失败则显示彩色小球）+ 探测器 info
+  const v1         = createProbeTrajectory(scene, v1Points,         0x00FFFF, 'voyager1',           v1Model,         '旅行者1号',       PROBE_INFO.voyager1)
+  const v2         = createProbeTrajectory(scene, v2Points,         0x00FF88, 'voyager2',           v2Model,         '旅行者2号',       PROBE_INFO.voyager2)
+  const juno       = createProbeTrajectory(scene, junoPoints,       0xFF6B4A, 'juno',               junoModel,       '朱诺号',          PROBE_INFO.juno)
+  const parker     = createProbeTrajectory(scene, parkerPoints,     0xFFD700, 'parker',             parkerModel,     '帕克太阳探测器',   PROBE_INFO.parker)
+  const galileo    = createProbeTrajectory(scene, galileoPoints,    0xB983FF, 'galileo',            galileoModel,    '伽利略号',        PROBE_INFO.galileo)
+  const cassini    = createProbeTrajectory(scene, cassiniPoints,    0x88CCFF, 'cassini',            cassiniModel,    '卡西尼号',        PROBE_INFO.cassini)
+  const rosetta    = createProbeTrajectory(scene, rosettaPoints,    0x66DDBB, 'rosetta',            rosettaModel,    '罗塞塔号',        PROBE_INFO.rosetta)
+  const pioneer    = createProbeTrajectory(scene, pioneerPoints,    0xFF9944, 'pioneer',            pioneerModel,    '先驱者10号',      PROBE_INFO.pioneer)
+  const ace        = createProbeTrajectory(scene, acePoints,        0x44FFBB, 'ace',                aceModel,        '先进成分探测器',   PROBE_INFO.ace)
+  const deepImpact = createProbeTrajectory(scene, deepImpactPoints, 0xFF4488, 'deepImpact',         deepImpactModel, '深度撞击号',      PROBE_INFO.deepImpact)
+  const mgs        = createProbeTrajectory(scene, mgsPoints,        0xFF6644, 'marsGlobalSurveyor', mgsModel,        '火星全球勘测者',   PROBE_INFO.marsGlobalSurveyor)
 
   if (v1)         probeObjects.push(v1)
   if (v2)         probeObjects.push(v2)
@@ -275,6 +299,21 @@ async function buildProbeTrajectories() {
   if (ace)        probeObjects.push(ace)
   if (deepImpact) probeObjects.push(deepImpact)
   if (mgs)        probeObjects.push(mgs)
+
+  // 更新射线检测列表（天体 + 探测器 dot/model），使点击探测器也能弹出 InfoPanel
+  const sunMesh = Object.values(planetMeshes).length > 0
+    ? scene.getObjectByName('太阳')
+    : null
+  const clickable = [
+    sunMesh,
+    ...Object.values(planetMeshes)
+  ].filter(Boolean)
+  // 加入探测器的 dot 和 model（含 userData.info）
+  for (const obj of probeObjects) {
+    if (obj?.dot)   clickable.push(obj.dot)
+    if (obj?.model) clickable.push(obj.model)
+  }
+  raycaster?.setClickableList(clickable)
 }
 
 // ──────────────────────────────────────────────────────────
@@ -437,9 +476,41 @@ onUnmounted(() => {
   line-height: 1.6;
 }
 
+/* 天体列表 */
+.celestial-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.celestial-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.celestial-icon {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.celestial-name {
+  font-size: 12px;
+  color: #ccc;
+  flex: 1;
+}
+
+.celestial-tag {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
 /* 探测器滚动容器 */
 .probe-scroll {
-  max-height: 155px;
+  max-height: 110px;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 4px;

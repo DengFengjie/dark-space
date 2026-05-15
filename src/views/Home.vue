@@ -63,11 +63,11 @@
       </div>
     </section>
 
-    <!-- 功能特性区域 -->
+    <!-- 深空任务视界 -->
     <section id="features" class="features-section">
       <div class="section-header">
-        <h2 class="section-title">核心功能</h2>
-        <p class="section-subtitle">先进的三维可视化技术，带您领略宇宙的壮丽景象</p>
+        <h2 class="section-title">深空任务视界</h2>
+        <p class="section-subtitle">以时间线为主线，总览人类深空探索历程——从太阳系全局到一线探测影像，尽在一屏之内</p>
       </div>
       
       <div class="features-grid">
@@ -155,11 +155,11 @@
       </div>
     </section>
 
-    <!-- 探索目标区域 -->
+    <!-- 天体深度探索 -->
     <section id="exploration" class="exploration-section">
       <div class="section-header">
-        <h2 class="section-title">探索目标</h2>
-        <p class="section-subtitle">深入了解太阳系的天体系统</p>
+        <h2 class="section-title">天体深度探索</h2>
+        <p class="section-subtitle">脱离时间线束缚，进入完全沉浸的高精度三维天体场景，自由旋转、缩放，观察每一寸星球表面</p>
       </div>
       
       <div class="targets-container">
@@ -172,6 +172,7 @@
           <div class="target-visual">
             <div class="target-sphere" :style="{ background: target.gradient }"></div>
             <div class="target-glow" :style="{ background: target.glowColor }"></div>
+            <div class="target-badge">{{ target.badge }}</div>
           </div>
           <div class="target-info">
             <h3>{{ target.name }}</h3>
@@ -184,7 +185,7 @@
             </div>
           </div>
           <div class="target-overlay">
-            <button class="explore-btn">进入探索 →</button>
+            <button class="explore-btn">沉浸探索 →</button>
           </div>
         </div>
       </div>
@@ -299,65 +300,54 @@ const features = [
   {
     svgId: 'solar',
     title: '太阳系全景',
-    description: '基于开普勒轨道根数实时计算八大行星精确位置，对数尺度映射解决宇宙比例难题，附带探测器飞行轨迹与时间轴驱动公转演示。',
+    description: '八大行星开普勒轨道实时推算，对数尺度映射解决宇宙比例难题，时间轴驱动行星公转与探测器飞行轨迹同步演绎。',
     action: () => navigateTo('/solar-system')
   },
   {
     svgId: 'moon',
-    title: '地月系统',
-    description: '精确还原地球-月球引力系统的轨道动力学，展示月相变化、潮汐锁定效应与历次阿波罗及嫦娥任务轨迹。',
+    title: '地月空间',
+    description: '地球-月球区域放大视图，还原阿波罗、嫦娥系列历次任务弹道，结合时间轴重现人类首次踏月的完整旅程。',
     action: () => navigateTo('/moon')
   },
   {
     svgId: 'mars',
-    title: '火星探测',
-    description: '三维重建火星地貌与大气层，追踪好奇号、毅力号、天问一号等巡视器实时位置，联动NASA Open API获取一手探测影像。',
+    title: '火星征途',
+    description: '聚焦火星探测圈，呈现好奇号、毅力号、天问一号等探测器入轨-降落-巡视全程轨迹，实时任务状态一目了然。',
     action: () => navigateTo('/mars')
   },
   {
     svgId: 'gallery',
-    title: '任务画廊',
-    description: '汇聚NASA火星车实拍原始影像数据库，支持按日期、相机类型筛选，ECharts统计图表揭示拍摄分布规律，灯箱模式沉浸细读。',
+    title: '成果回廊',
+    description: '汇聚 NASA 火星车实拍原始影像，按日期与相机类型筛选，ECharts 图表揭示拍摄规律，灯箱模式沉浸细读每一帧历史。',
     action: () => navigateTo('/gallery')
   }
 ]
 
 const targets = [
+  
   {
-    name: '太阳系',
-    description: '包含八大行星的完整恒星系统',
-    gradient: 'radial-gradient(circle at 30% 30%, #FFD700, #FF6600, #000)',
-    glowColor: 'radial-gradient(circle, rgba(255,215,0,0.3), transparent)',
-    stats: {
-      '直径': '2874.6亿公里',
-      '年龄': '46亿年',
-      '行星': '8颗'
-    },
-    action: () => navigateTo('/solar-system')
-  },
-  {
-    name: '火星',
-    description: '充满神秘的红色星球',
-    gradient: 'radial-gradient(circle at 30% 30%, #FF6B4A, #C1440E, #000)',
-    glowColor: 'radial-gradient(circle, rgba(193,68,14,0.3), transparent)',
-    stats: {
-      '直径': '6,779公里',
-      '距离': '2.28亿公里',
-      '卫星': '2颗'
-    },
-    action: () => navigateTo('/mars')
-  },
-  {
-    name: '月球',
-    description: '地球唯一的天然卫星',
-    gradient: 'radial-gradient(circle at 30% 30%, #E0E0E0, #A0A0A0, #000)',
+    name: '月球秘境',
+    badge: '高精度模型',
+    description: '高精度月球三维球体，带标注陨石坑与阿波罗着陆点，可近距离观察月面地貌细节，感受寂静之海的荒芜之美。',
+    gradient: 'radial-gradient(circle at 30% 30%, #D8D8D8, #8A8A8A, #111)',
     glowColor: 'radial-gradient(circle, rgba(200,200,200,0.3), transparent)',
-    stats: {
-      '直径': '3,474公里',
-      '距离': '38.4万公里',
-      '周期': '27.3天'
-    },
-    action: () => navigateTo('/moon')
+    action: () => navigateTo('/moon-secret')
+  },
+  {
+    name: '火星奇境',
+    badge: '地貌探索',
+    description: '火星高精度地形模型，精确呈现奥林帕斯山（太阳系最高峰）、水手谷（最深峡谷）等标志性地貌，震撼视觉体验。',
+    gradient: 'radial-gradient(circle at 30% 30%, #FF7050, #C1440E, #1a0500)',
+    glowColor: 'radial-gradient(circle, rgba(193,68,14,0.3), transparent)',
+    action: () => navigateTo('/mars-wonder')
+  },
+  {
+    name: '木星巨眼',
+    badge: '云带深处',
+    description: '拖动鼠标，以任意角度观察木星复杂的大气分层。可见光纹理源自朱诺号JunoCam，每一条条纹都是一股时速数百公里的急流。',
+    gradient: 'radial-gradient(circle at 30% 30%, #E8A87C, #C77D43, #3A2318)',
+    glowColor: 'radial-gradient(circle, rgba(200,125,67,0.35), transparent)',
+    action: () => navigateTo('/jupiter-eye')
   }
 ]
 
@@ -382,6 +372,11 @@ const technologies = [
     name: 'Apache ECharts',
     logo: 'https://echarts.apache.org/zh/images/favicon.png',
     desc: '时间轴驱动、统计图表与 3D 场景双向联动，数据可视化深度集成'
+  },
+  {
+    name: 'Node.js',
+    logo: 'https://nodejs.org/static/images/logo.svg',
+    desc: 'Express 框架搭建 JPL Horizons API 代理，提供高性能星历数据服务'
   }
 ]
 
@@ -404,13 +399,18 @@ let animationId
 const initStarfield = () => {
   if (!starfield.value) return
   
+  const container = starfield.value
+  const width = container.clientWidth
+  const height = container.clientHeight
+  
   scene = new THREE.Scene()
-  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
+  camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000)
   camera.position.z = 50
   
   renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
-  renderer.setSize(window.innerWidth, window.innerHeight)
-  starfield.value.appendChild(renderer.domElement)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  renderer.setSize(width, height)
+  container.appendChild(renderer.domElement)
   
   // 创建星星
   const geometry = new THREE.BufferGeometry()
@@ -450,6 +450,17 @@ const animate = () => {
   renderer.render(scene, camera)
 }
 
+// 大小自适应
+const handleResize = () => {
+  if (!starfield.value || !renderer) return
+  const container = starfield.value
+  const width = container.clientWidth
+  const height = container.clientHeight
+  camera.aspect = width / height
+  camera.updateProjectionMatrix()
+  renderer.setSize(width, height)
+}
+
 // 滚动监听
 const handleScroll = () => {
   isScrolled.value = window.scrollY > 50
@@ -457,6 +468,7 @@ const handleScroll = () => {
 
 onMounted(() => {
   initStarfield()
+  window.addEventListener('resize', handleResize)
   window.addEventListener('scroll', handleScroll)
 })
 
@@ -467,6 +479,7 @@ onUnmounted(() => {
   if (renderer) {
     renderer.dispose()
   }
+  window.removeEventListener('resize', handleResize)
   window.removeEventListener('scroll', handleScroll)
 })
 </script>
@@ -487,6 +500,12 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   z-index: 0;
+  overflow: hidden;
+}
+.starfield canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* 导航栏 */
@@ -869,6 +888,21 @@ onUnmounted(() => {
   opacity: 0.6;
 }
 
+.target-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: linear-gradient(135deg, rgba(100,163,255,0.25), rgba(79,195,247,0.2));
+  border: 1px solid rgba(100,163,255,0.4);
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4fc3f7;
+  letter-spacing: 0.5px;
+  backdrop-filter: blur(4px);
+}
+
 .target-info {
   padding: 30px;
   color: #fff;
@@ -960,9 +994,9 @@ onUnmounted(() => {
 
 .tech-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 40px;
-  max-width: 1000px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 30px;
+  max-width: 1400px;
   margin: 0 auto;
   text-align: center;
   color: #fff;
@@ -1307,5 +1341,29 @@ onUnmounted(() => {
   .features-grid {
     grid-template-columns: 1fr;
   }
+
+  /* tech-grid 5列 → 2列或3列 */
+  .tech-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
+
+@media (max-width: 1200px) {
+  .tech-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .tech-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .tech-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 </style>

@@ -11,102 +11,83 @@
       </div>
     </transition>
 
-    <!-- 时间轴主体 -->
-    <div class="timeline-track-wrap">
-      <!-- 里程碑标记 -->
-      <div class="milestones-layer">
+    <!-- 单行控制栏 -->
+    <div class="controls-row">
+      <!-- 播放/暂停 -->
+      <button
+        class="ctrl-btn play-btn"
+        :class="{ playing: store.isPlaying }"
+        @click="store.togglePlaying()"
+      >
+        {{ store.isPlaying ? '⏸' : '▶' }}
+      </button>
+
+      <!-- 速度控制 -->
+      <div class="speed-wrap">
+        <button class="speed-arrow" @click="speedDown" :disabled="speedIdx <= 0">◀</button>
+        <span class="speed-value">{{ timeScales[speedIdx]?.label || '30天/秒' }}</span>
+        <button class="speed-arrow" @click="speedUp" :disabled="speedIdx >= timeScales.length - 1">▶</button>
+      </div>
+
+      <!-- 时间轴主体 -->
+      <div class="timeline-track-wrap">
+        <!-- 里程碑标记 -->
+        <div class="milestones-layer">
+          <div
+            v-for="m in visibleMilestones"
+            :key="m.date"
+            class="milestone-dot"
+            :style="{ left: getMilestonePos(m) + '%' }"
+            @mouseenter="showMilestone(m, $event)"
+            @mouseleave="hideMilestone"
+          >
+            <span class="m-marker">▲</span>
+          </div>
+        </div>
+
+        <!-- 拖动条 -->
         <div
-          v-for="m in visibleMilestones"
-          :key="m.date"
-          class="milestone-dot"
-          :style="{ left: getMilestonePos(m) + '%', borderColor: m.color }"
-          :title="m.name"
-          @mouseenter="showMilestone(m, $event)"
-          @mouseleave="hideMilestone"
+          ref="trackRef"
+          class="timeline-track"
+          @click="onTrackClick"
+          @mousedown="startDrag"
         >
-          <span class="m-dot-icon">{{ m.icon }}</span>
+          <div class="track-fill" :style="{ width: fillPercent + '%' }"></div>
+          <div
+            class="thumb"
+            :style="{ left: fillPercent + '%' }"
+            :class="{ dragging: isDragging }"
+          ></div>
+        </div>
+
+        <!-- 时间刻度 -->
+        <div class="time-ticks">
+          <span v-for="tick in timeTicks" :key="tick.year" class="tick" :style="{ left: tick.pos + '%' }">
+            {{ tick.year }}
+          </span>
         </div>
       </div>
 
-      <!-- 拖动条 -->
-      <div
-        ref="trackRef"
-        class="timeline-track"
-        @click="onTrackClick"
-        @mousedown="startDrag"
-      >
-        <!-- 已过进度 -->
-        <div class="track-fill" :style="{ width: fillPercent + '%' }" />
-        <!-- 滑块 -->
-        <div
-          class="thumb"
-          :style="{ left: fillPercent + '%' }"
-          :class="{ dragging: isDragging }"
-        />
-      </div>
-
-      <!-- 时间刻度标签 -->
-      <div class="time-ticks">
-        <span v-for="tick in timeTicks" :key="tick.year" class="tick" :style="{ left: tick.pos + '%' }">
-          {{ tick.year }}
-        </span>
-      </div>
-    </div>
-
-    <!-- 控制栏 -->
-    <div class="controls-row">
-      <!-- 播放/暂停 -->
-      <button class="ctrl-btn play-btn" @click="store.togglePlaying()" :title="store.isPlaying ? '暂停' : '播放'">
-        {{ store.isPlaying ? '⏸' : '▶️' }}
-      </button>
-
-      <!-- 速度选择 -->
-      <div class="speed-wrap">
-        <span class="speed-label">速度</span>
-        <select class="speed-select" v-model="selectedScale" @change="onSpeedChange">
-          <option v-for="s in timeScales" :key="s.value" :value="s.value">{{ s.label }}</option>
-        </select>
-      </div>
-
-      <!-- 当前时间显示 -->
+      <!-- 日期显示 -->
       <div class="time-display">
-        <span class="time-year">{{ store.currentYear }}</span>
         <span class="time-date">{{ store.currentDateStr }}</span>
       </div>
 
-      <!-- 轨道/标签开关 -->
+      <!-- 开关组 -->
       <div class="toggle-row">
-        <button
-          class="toggle-btn"
-          :class="{ active: store.showOrbits }"
-          @click="store.toggleOrbits()"
-        >
-          轨道
-        </button>
-        <button
-          class="toggle-btn"
-          :class="{ active: store.showLabels }"
-          @click="store.toggleLabels()"
-        >
-          标签
-        </button>
-        <button
-          class="toggle-btn"
-          :class="{ active: store.showProbeTrajectories }"
-          @click="store.toggleProbeTrajectories()"
-        >
-          探测器
-        </button>
+        <button class="toggle-btn" :class="{ active: store.showOrbits }" @click="store.toggleOrbits()">轨道</button>
+        <button class="toggle-btn" :class="{ active: store.showLabels }" @click="store.toggleLabels()">标签</button>
+        <button class="toggle-btn" :class="{ active: store.showProbeTrajectories }" @click="store.toggleProbeTrajectories()">探测器</button>
       </div>
 
       <!-- 重置 -->
-      <button class="ctrl-btn" @click="resetToNow" title="跳转到今天">🏠</button>
+      <button class="ctrl-btn reset-btn" @click="resetToNow">🏠</button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useSpaceStore } from '../stores/useSpaceStore.js'
 import { TIME_SCALES } from '../utils/timeUtils.js'
 
@@ -115,17 +96,37 @@ const trackRef = ref(null)
 const isDragging = ref(false)
 const activeMilestone = ref(null)
 const milestonePopupStyle = ref({})
-const selectedScale = ref(store.timeScale)
 
 const timeScales = TIME_SCALES
 
-// 填充进度百分比
+// 速度档位索引
+const speedIdx = ref(timeScales.findIndex(s => s.value === store.timeScale))
+if (speedIdx.value < 0) speedIdx.value = 1
+
+function speedUp() {
+  if (speedIdx.value < timeScales.length - 1) {
+    speedIdx.value++
+    store.setTimeScale(timeScales[speedIdx.value].value)
+  }
+}
+
+function speedDown() {
+  if (speedIdx.value > 0) {
+    speedIdx.value--
+    store.setTimeScale(timeScales[speedIdx.value].value)
+  }
+}
+
+watch(() => store.timeScale, (val) => {
+  const idx = timeScales.findIndex(s => s.value === val)
+  if (idx >= 0) speedIdx.value = idx
+})
+
 const fillPercent = computed(() => {
   const { start, end } = store.timeRange
   return ((store.currentTime - start) / (end - start)) * 100
 })
 
-// 里程碑位置计算
 const visibleMilestones = computed(() => store.milestones)
 
 function getMilestonePos(m) {
@@ -134,7 +135,6 @@ function getMilestonePos(m) {
   return ((t - start) / (end - start)) * 100
 }
 
-// 时间刻度（每10年一个刻度）
 const timeTicks = computed(() => {
   const { start, end } = store.timeRange
   const startYear = new Date(start).getFullYear()
@@ -148,14 +148,7 @@ const timeTicks = computed(() => {
   return ticks
 })
 
-// ──────────────────────────────────────────
-// 速度控制
-function onSpeedChange() {
-  store.setTimeScale(selectedScale.value)
-}
-
-// ──────────────────────────────────────────
-// 轨道点击 & 拖动
+// ── 拖动/点击 ──
 function getPosFromEvent(e) {
   const rect = trackRef.value.getBoundingClientRect()
   const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left
@@ -164,8 +157,7 @@ function getPosFromEvent(e) {
 
 function onTrackClick(e) {
   if (!trackRef.value) return
-  const p = getPosFromEvent(e)
-  store.setTimeByProgress(p)
+  store.setTimeByProgress(getPosFromEvent(e))
 }
 
 function startDrag(e) {
@@ -177,8 +169,7 @@ function startDrag(e) {
 
 function onDragMove(e) {
   if (!isDragging.value || !trackRef.value) return
-  const p = getPosFromEvent(e)
-  store.setTimeByProgress(p)
+  store.setTimeByProgress(getPosFromEvent(e))
 }
 
 function stopDrag() {
@@ -187,8 +178,7 @@ function stopDrag() {
   document.removeEventListener('mouseup', stopDrag)
 }
 
-// ──────────────────────────────────────────
-// 里程碑弹窗
+// ── 里程碑弹窗 ──
 function showMilestone(m, event) {
   activeMilestone.value = m
   const rect = event.target.getBoundingClientRect()
@@ -196,22 +186,15 @@ function showMilestone(m, event) {
   if (barRect) {
     milestonePopupStyle.value = {
       left: (rect.left - barRect.left) + 'px',
-      bottom: '60px'
+      bottom: '54px'
     }
   }
 }
 
-function hideMilestone() {
-  activeMilestone.value = null
-}
+function hideMilestone() { activeMilestone.value = null }
 
-// ──────────────────────────────────────────
-// 重置到今天
-function resetToNow() {
-  store.setCurrentTime(Date.now())
-}
+function resetToNow() { store.setCurrentTime(Date.now()) }
 
-// 清理拖动事件
 onUnmounted(() => {
   document.removeEventListener('mousemove', onDragMove)
   document.removeEventListener('mouseup', stopDrag)
@@ -225,17 +208,116 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   z-index: 300;
-  padding: 10px 24px 12px;
-  background: linear-gradient(to top, rgba(0, 5, 20, 0.97), rgba(0, 5, 20, 0.85));
-  border-top: 1px solid rgba(100, 163, 255, 0.2);
-  backdrop-filter: blur(12px);
+  padding: 8px 24px 10px;
+  background: linear-gradient(to top, rgba(4, 8, 24, 0.98), rgba(8, 16, 40, 0.85));
+  border-top: 1px solid rgba(180, 160, 120, 0.15);
+  backdrop-filter: blur(16px);
 }
 
-/* ── 轨道区 ── */
+/* ── 单行控制栏 ── */
+.controls-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+}
+
+/* ── 通用按钮 ── */
+.ctrl-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.22s;
+  flex-shrink: 0;
+}
+
+.ctrl-btn:hover {
+  background: rgba(255, 215, 100, 0.2);
+  border-color: rgba(255, 215, 100, 0.45);
+  color: #FFD770;
+}
+
+/* 播放按钮 */
+.play-btn {
+  width: 38px;
+  height: 38px;
+  font-size: 16px;
+  background: rgba(255, 215, 100, 0.1);
+  border-color: rgba(255, 215, 100, 0.3);
+  color: #FFD770;
+}
+
+.play-btn.playing {
+  background: rgba(255, 215, 100, 0.2);
+  border-color: rgba(255, 215, 100, 0.55);
+  color: #FFEAAA;
+  box-shadow: 0 0 14px rgba(255, 200, 60, 0.35);
+}
+
+/* 重置按钮 */
+.reset-btn {
+  font-size: 14px;
+}
+
+/* ── 速度控制 ── */
+.speed-wrap {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.speed-arrow {
+  width: 28px;
+  height: 30px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.speed-arrow:hover:not(:disabled) {
+  background: rgba(255, 215, 100, 0.18);
+  border-color: rgba(255, 215, 100, 0.4);
+  color: #FFD770;
+}
+
+.speed-arrow:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+.speed-value {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.65);
+  min-width: 60px;
+  text-align: center;
+  font-family: 'Segoe UI', monospace;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+/* ── 时间轴轨道区 ── */
 .timeline-track-wrap {
   position: relative;
-  margin-bottom: 6px;
-  padding-top: 24px; /* 为里程碑点留空间 */
+  flex: 1;
+  min-width: 160px;
+  padding-top: 12px;
 }
 
 .milestones-layer {
@@ -243,41 +325,40 @@ onUnmounted(() => {
   top: 0;
   left: 0;
   right: 0;
-  height: 24px;
+  height: 20px;
   pointer-events: none;
 }
 
 .milestone-dot {
   position: absolute;
   transform: translateX(-50%);
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 2px solid #FFD700;
-  background: rgba(0, 5, 20, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 16px;
+  height: 20px;
   cursor: pointer;
   pointer-events: all;
-  transition: transform 0.2s;
-  z-index: 10;
+  z-index: 5;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
 }
 
-.milestone-dot:hover {
-  transform: translateX(-50%) scale(1.3);
-}
-
-.m-dot-icon {
-  font-size: 12px;
+.m-marker {
+  font-size: 10px;
+  color: rgba(255, 215, 100, 0.6);
   line-height: 1;
+  transition: color 0.2s, transform 0.2s;
 }
 
-/* 轨道 */
+.milestone-dot:hover .m-marker {
+  color: #FFD770;
+  transform: scale(1.5);
+}
+
+/* 轨道条 */
 .timeline-track {
   position: relative;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.12);
+  height: 5px;
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 3px;
   cursor: pointer;
   user-select: none;
@@ -288,208 +369,132 @@ onUnmounted(() => {
   top: 0;
   left: 0;
   height: 100%;
-  background: linear-gradient(90deg, #1a4acc, #64a3ff, #4fc3f7);
+  background: linear-gradient(90deg, #E6A817, #F5D76E, #FFEAAA);
   border-radius: 3px;
   pointer-events: none;
+  box-shadow: 0 0 12px rgba(245, 215, 110, 0.45);
 }
 
 .thumb {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 16px;
-  height: 16px;
-  background: #64a3ff;
-  border: 2px solid #fff;
+  width: 14px;
+  height: 14px;
+  background: linear-gradient(135deg, #FFF8E7, #F5D76E);
+  border: 2px solid #FFEAAA;
   border-radius: 50%;
-  box-shadow: 0 0 10px rgba(100, 163, 255, 0.8);
+  box-shadow: 0 0 16px rgba(245, 215, 110, 0.65), 0 0 6px rgba(255, 255, 255, 0.5);
   pointer-events: none;
-  transition: width 0.15s, height 0.15s;
+  transition: width 0.1s, height 0.1s, box-shadow 0.1s;
 }
 
 .thumb.dragging {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
+  box-shadow: 0 0 24px rgba(245, 215, 110, 0.9), 0 0 10px rgba(255, 255, 255, 0.7);
 }
 
 /* 刻度 */
 .time-ticks {
   position: relative;
-  height: 16px;
-  margin-top: 4px;
+  height: 15px;
+  margin-top: 3px;
 }
 
 .tick {
   position: absolute;
   transform: translateX(-50%);
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.25);
   pointer-events: none;
+  font-family: 'Segoe UI', monospace;
 }
 
-/* ── 控制栏 ── */
-.controls-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 6px;
-}
-
-.ctrl-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #fff;
-  font-size: 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-
-.ctrl-btn:hover {
-  background: rgba(100, 163, 255, 0.25);
-  border-color: rgba(100, 163, 255, 0.5);
-}
-
-.play-btn {
-  width: 40px;
-  height: 40px;
-  font-size: 18px;
-  background: rgba(100, 163, 255, 0.2);
-  border-color: rgba(100, 163, 255, 0.5);
-}
-
-/* 速度 */
-.speed-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.speed-label {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
-  white-space: nowrap;
-}
-
-.speed-select {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #fff;
-  border-radius: 8px;
-  padding: 4px 8px;
-  font-size: 12px;
-  cursor: pointer;
-  outline: none;
-}
-
-.speed-select option {
-  background: #001030;
-}
-
-/* 时间显示 */
+/* ── 日期显示 ── */
 .time-display {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 90px;
-}
-
-.time-year {
-  font-size: 20px;
-  font-weight: bold;
-  color: #64a3ff;
-  font-family: monospace;
-  line-height: 1;
+  flex-shrink: 0;
+  min-width: 100px;
+  text-align: center;
 }
 
 .time-date {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
-  font-family: monospace;
+  font-size: 14px;
+  color: #FFEAAA;
+  font-family: 'Segoe UI', monospace;
+  font-weight: 600;
+  letter-spacing: 0.8px;
 }
 
-/* 开关按钮 */
+/* ── 开关按钮 ── */
 .toggle-row {
   display: flex;
-  gap: 6px;
-  margin-left: auto;
+  gap: 5px;
+  flex-shrink: 0;
 }
 
 .toggle-btn {
-  padding: 6px 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.5);
+  padding: 5px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
-}
-
-.toggle-btn.active {
-  background: rgba(100, 163, 255, 0.2);
-  border-color: rgba(100, 163, 255, 0.5);
-  color: #64a3ff;
+  transition: all 0.22s;
+  white-space: nowrap;
 }
 
 .toggle-btn:hover {
-  border-color: rgba(100, 163, 255, 0.4);
-  color: #aaa;
+  border-color: rgba(255, 215, 100, 0.35);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.toggle-btn.active {
+  background: rgba(255, 215, 100, 0.18);
+  border-color: rgba(255, 200, 60, 0.5);
+  color: #FFD770;
+  box-shadow: 0 0 10px rgba(255, 200, 60, 0.25);
 }
 
 /* ── 里程碑弹窗 ── */
 .milestone-popup {
   position: absolute;
-  background: rgba(0, 8, 30, 0.95);
-  border: 1px solid rgba(255, 215, 0, 0.5);
-  border-radius: 10px;
-  padding: 8px 12px;
+  background: rgba(8, 12, 30, 0.97);
+  border: 1px solid rgba(255, 215, 100, 0.5);
+  border-radius: 12px;
+  padding: 8px 14px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   pointer-events: none;
   z-index: 500;
   white-space: nowrap;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.6);
 }
 
-.m-icon { font-size: 20px; }
+.m-icon { font-size: 22px; line-height: 1; }
 
-.m-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
+.m-info { display: flex; flex-direction: column; gap: 2px; }
 
 .m-date {
   font-size: 11px;
-  color: #888;
-  font-family: monospace;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: 'Segoe UI', monospace;
 }
 
 .m-name {
-  font-size: 13px;
-  color: #FFD700;
+  font-size: 14px;
+  color: #FFD770;
   font-weight: 600;
 }
 
-/* 弹窗动画 */
 .milestone-pop-enter-active,
-.milestone-pop-leave-active {
-  transition: all 0.2s ease;
-}
+.milestone-pop-leave-active { transition: all 0.15s ease; }
 
 .milestone-pop-enter-from,
-.milestone-pop-leave-to {
-  opacity: 0;
-  transform: translateY(6px);
-}
+.milestone-pop-leave-to { opacity: 0; transform: translateY(5px); }
 
 @media (max-width: 768px) {
   .toggle-row { display: none; }

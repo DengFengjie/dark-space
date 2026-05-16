@@ -1,14 +1,6 @@
 <template>
   <div class="scene-page">
-    <header class="page-header">
-      <button @click="goHome" class="back-btn">← 返回首页</button>
-      <h1 class="page-title">火星探测</h1>
-      <nav class="view-nav">
-        <router-link to="/solar-system" class="view-link">太阳系</router-link>
-        <router-link to="/mars" class="view-link active">火星</router-link>
-        <router-link to="/moon" class="view-link">月球</router-link>
-      </nav>
-    </header>
+    <Header :show-date="true" />
 
     <div class="info-panel">
       <div class="info-card">
@@ -51,11 +43,10 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import Header from '../components/Header.vue'
 
-const router = useRouter()
 const canvasContainer = ref(null)
 const showOrbits = ref(true)
 const isRotating = ref(true)
@@ -64,8 +55,6 @@ let scene, camera, renderer, controls
 let celestialObjects = []
 let orbitLines = []
 let animationId
-
-const goHome = () => router.push('/')
 
 const toggleOrbits = () => {
   showOrbits.value = !showOrbits.value
@@ -202,71 +191,10 @@ onUnmounted(() => {
   background: #000;
 }
 
-.page-header {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
-  padding: 20px 40px;
-  display: flex;
-  align-items: center;
-  gap: 30px;
-}
-
-.back-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #fff;
-  padding: 10px 20px;
-  border-radius: 25px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 14px;
-  backdrop-filter: blur(10px);
-}
-
-.back-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateX(-5px);
-}
-
-.page-title {
-  color: #fff;
-  font-size: 28px;
-  text-shadow: 0 0 10px rgba(100, 150, 255, 0.8);
-}
-
-.view-nav {
-  margin-left: auto;
-  display: flex;
-  gap: 15px;
-}
-
-.view-link {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #fff;
-  padding: 10px 25px;
-  border-radius: 25px;
-  text-decoration: none;
-  transition: all 0.3s ease;
-  font-size: 14px;
-  backdrop-filter: blur(10px);
-}
-
-.view-link:hover,
-.view-link.active {
-  background: rgba(100, 150, 255, 0.3);
-  border-color: rgba(100, 150, 255, 0.8);
-  box-shadow: 0 0 20px rgba(100, 150, 255, 0.5);
-}
-
 .info-panel {
   position: absolute;
   left: 20px;
-  top: 100px;
+  top: 76px;
   z-index: 100;
   max-width: 350px;
 }

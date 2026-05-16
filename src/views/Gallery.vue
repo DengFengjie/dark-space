@@ -28,14 +28,6 @@
           </button>
         </div>
 
-        <!-- 相机筛选 -->
-        <div class="camera-filter">
-          <label>📷 相机</label>
-          <select v-model="selectedCamera" class="filter-select">
-            <option value="">全部相机</option>
-            <option v-for="cam in availableCameras" :key="cam" :value="cam">{{ cam }}</option>
-          </select>
-        </div>
 
         <!-- 已浏览日期范围（只读展示） -->
         <div v-if="dateRangeLabel" class="date-range-badge">
@@ -51,35 +43,119 @@
 
       <!-- 火星车信息卡 -->
       <div v-if="currentRoverConfig" class="rover-info-card">
-        <div class="rover-details">
-          <span class="ri-label">着陆日期</span><span class="ri-val">{{ currentRoverConfig.landing }}</span>
-          <span class="ri-label">着陆地点</span><span class="ri-val">{{ currentRoverConfig.location }}</span>
-          <span class="ri-label">质量</span><span class="ri-val">{{ currentRoverConfig.mass }}</span>
-          <span class="ri-label">任务状态</span>
-          <span class="ri-val" :class="currentRoverConfig.status === '活跃' ? 'status-active' : 'status-done'">
-            {{ currentRoverConfig.status }}
-          </span>
+        <!-- 左侧：关键参数表 -->
+        <div class="rover-stats-grid">
+          <div class="ri-item">
+            <span class="ri-label">发射日期</span>
+            <span class="ri-val">{{ currentRoverConfig.launch }}</span>
+          </div>
+          <div class="ri-item">
+            <span class="ri-label">着陆日期</span>
+            <span class="ri-val">{{ currentRoverConfig.landing }}</span>
+          </div>
+          <div class="ri-item">
+            <span class="ri-label">着陆地点</span>
+            <span class="ri-val">{{ currentRoverConfig.location }}</span>
+          </div>
+          <div class="ri-item">
+            <span class="ri-label">质量</span>
+            <span class="ri-val">{{ currentRoverConfig.mass }}</span>
+          </div>
+          <div class="ri-item">
+            <span class="ri-label">动力来源</span>
+            <span class="ri-val">{{ currentRoverConfig.power }}</span>
+          </div>
+          <div class="ri-item">
+            <span class="ri-label">行驶速度</span>
+            <span class="ri-val">{{ currentRoverConfig.speed }}</span>
+          </div>
+          <div class="ri-item">
+            <span class="ri-label">累计行驶</span>
+            <span class="ri-val ri-highlight">{{ currentRoverConfig.totalDistance }}</span>
+          </div>
+          <div class="ri-item">
+            <span class="ri-label">累计拍摄</span>
+            <span class="ri-val ri-highlight">{{ currentRoverConfig.totalPhotos }}</span>
+          </div>
+          <div class="ri-item">
+            <span class="ri-label">设计寿命</span>
+            <span class="ri-val">{{ currentRoverConfig.designLife }}</span>
+          </div>
+          <div class="ri-item">
+            <span class="ri-label">任务状态</span>
+            <span class="ri-val" :class="currentRoverConfig.status === '活跃' ? 'status-active' : 'status-done'">
+              {{ currentRoverConfig.status }}
+            </span>
+          </div>
         </div>
-        <p class="rover-desc">{{ currentRoverConfig.description }}</p>
+
+        <!-- 右侧：描述 + 亮点 + 科学仪器 -->
+        <div class="rover-right">
+          <p class="rover-desc">{{ currentRoverConfig.description }}</p>
+
+          <div class="rover-highlights">
+            <div class="rh-title">🏆 任务亮点</div>
+            <ul class="rh-list">
+              <li v-for="h in currentRoverConfig.highlights" :key="h">{{ h }}</li>
+            </ul>
+          </div>
+
+          <div class="rover-instruments">
+            <div class="ri-instr-title">🔬 科学仪器</div>
+            <div class="ri-instr-tags">
+              <span v-for="ins in currentRoverConfig.instruments" :key="ins" class="instr-tag">{{ ins }}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- 统计图表 -->
+      <!-- 统计 + 相机筛选（合并模块） -->
       <div class="stats-section">
-        <div class="stat-card">
-          <div class="stat-number">{{ photos.length }}</div>
-          <div class="stat-desc">已加载照片</div>
+        <!-- 左：数字统计 + 饼图 -->
+        <div class="stats-left">
+          <div class="stat-card">
+            <div class="stat-number">{{ photos.length }}</div>
+            <div class="stat-desc">已加载照片</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number">{{ availableCameras.length }}</div>
+            <div class="stat-desc">活跃相机</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number">{{ filteredPhotos.length }}</div>
+            <div class="stat-desc">显示中</div>
+          </div>
+          <!-- ECharts 相机分布图 -->
+          <div class="chart-wrap">
+            <div ref="chartRef" class="echarts-container" />
+          </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-number">{{ availableCameras.length }}</div>
-          <div class="stat-desc">活跃相机</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-number">{{ filteredPhotos.length }}</div>
-          <div class="stat-desc">显示中</div>
-        </div>
-        <!-- ECharts 相机分布图 -->
-        <div class="chart-wrap">
-          <div ref="chartRef" class="echarts-container" />
+
+        <!-- 分隔线 -->
+        <div v-if="availableCameras.length > 0" class="stats-divider"></div>
+
+        <!-- 右：相机筛选面板 -->
+        <div v-if="availableCameras.length > 0" class="stats-cam">
+          <div class="cam-panel-header">
+            <span class="cam-panel-icon">📷</span>
+            <span class="cam-panel-title">相机筛选</span>
+            <span class="cam-panel-hint">{{ availableCameras.length }} 个相机 · {{ filteredPhotos.length }} 张</span>
+          </div>
+          <div class="cam-panel-body">
+            <select v-model="selectedCamera" class="cam-select">
+              <option value="">🌐 全部相机（显示所有）</option>
+              <option
+                v-for="cam in availableCameras"
+                :key="cam"
+                :value="cam"
+              >📷 {{ cam }} — {{ getCameraFullName(cam) }}</option>
+            </select>
+            <div v-if="selectedCamera" class="cam-active-hint">
+              <span class="cam-active-dot"></span>
+              当前：<b>{{ selectedCamera }}</b> · {{ getCameraFullName(selectedCamera) }}
+              <button class="cam-clear-btn" @click="selectedCamera = ''">✕</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -332,6 +408,36 @@ function resetAndFetch() {
   fetchPhotos()
 }
 
+// ── 相机全名映射 ──
+function getCameraFullName(abbr) {
+  const names = {
+    FHAZ:                  'Front Hazard Avoidance Camera',
+    RHAZ:                  'Rear Hazard Avoidance Camera',
+    MAST:                  'Mast Camera',
+    CHEMCAM:               'Chemistry & Camera Complex',
+    MAHLI:                 'Mars Hand Lens Imager',
+    MARDI:                 'Mars Descent Imager',
+    NAVCAM:                'Navigation Camera',
+    PANCAM:                'Panoramic Camera',
+    MINITES:               'Miniature Thermal Emission Spectrometer',
+    NAVCAM_LEFT:           'Navigation Camera – Left',
+    NAVCAM_RIGHT:          'Navigation Camera – Right',
+    MCZ_LEFT:              'Mastcam-Z Left',
+    MCZ_RIGHT:             'Mastcam-Z Right',
+    FRONT_HAZCAM_LEFT_A:   'Front Left Hazard Avoidance Camera – A',
+    FRONT_HAZCAM_RIGHT_A:  'Front Right Hazard Avoidance Camera – A',
+    REAR_HAZCAM_LEFT:      'Rear Left Hazard Avoidance Camera',
+    REAR_HAZCAM_RIGHT:     'Rear Right Hazard Avoidance Camera',
+    SHERLOC_WATSON:        'SHERLOC Watson Camera',
+    SKYCAM:                'Sky Camera',
+    EDL_RUCAM:             'Rover Up-Look Camera',
+    EDL_RDCAM:             'Rover Down-Look Camera',
+    EDL_DDCAM:             'Descent Stage Down-Look Camera',
+    SUPERCAM_RMI:          'SuperCam Remote Micro-Imager'
+  }
+  return names[abbr] || abbr
+}
+
 // ── ECharts 相机分布图 ──
 function updateChart() {
   if (!chartRef.value) return
@@ -475,23 +581,100 @@ watch(chartRef, (el) => {
 .tab-status.active { color: #4fc3f7; }
 .tab-status.done { color: #888; }
 
-.camera-filter {
+/* ── 相机筛选（嵌入统计模块右侧） ── */
+.cam-panel-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 12px;
 }
 
-.filter-select {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #fff;
+.cam-panel-icon { font-size: 18px; }
+
+.cam-panel-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.cam-panel-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-left: 4px;
+}
+
+.cam-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cam-select {
+  width: 100%;
+  padding: 9px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 8px;
-  padding: 6px 10px;
+  color: #e0e0e0;
   font-size: 13px;
   outline: none;
   cursor: pointer;
+  appearance: auto;
+}
+
+.cam-select:focus {
+  border-color: rgba(255, 107, 74, 0.5);
+  background: rgba(255, 107, 74, 0.06);
+}
+
+.cam-select option {
+  background: #0a0a14;
+  color: #e0e0e0;
+}
+
+/* 已选相机提示行 */
+.cam-active-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.5);
+  flex-wrap: wrap;
+}
+
+.cam-active-hint b {
+  color: #FF6B4A;
+  font-family: monospace;
+}
+
+.cam-active-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #FF6B4A;
+  flex-shrink: 0;
+  animation: dot-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.cam-clear-btn {
+  padding: 2px 10px;
+  background: rgba(255, 107, 74, 0.12);
+  border: 1px solid rgba(255, 107, 74, 0.35);
+  border-radius: 12px;
+  color: #FF6B4A;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+.cam-clear-btn:hover {
+  background: rgba(255, 107, 74, 0.25);
+  border-color: rgba(255, 107, 74, 0.7);
 }
 
 /* ── 日期范围徽标 ── */
@@ -520,49 +703,176 @@ watch(chartRef, (el) => {
 /* ── 火星车信息卡 ── */
 .rover-info-card {
   margin: 16px 40px;
-  padding: 16px 20px;
-  background: rgba(193, 68, 14, 0.1);
+  padding: 20px 24px;
+  background: rgba(193, 68, 14, 0.08);
   border: 1px solid rgba(193, 68, 14, 0.3);
-  border-radius: 12px;
+  border-radius: 14px;
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 24px;
   align-items: flex-start;
 }
 
-.rover-details {
+/* 左侧参数网格 */
+.rover-stats-grid {
   display: grid;
-  grid-template-columns: auto auto;
-  gap: 6px 20px;
-  align-items: center;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 28px;
+  min-width: 300px;
+  flex-shrink: 0;
 }
 
-.ri-label { font-size: 12px; color: rgba(255, 255, 255, 0.45); }
-.ri-val { font-size: 13px; color: #eee; font-weight: 500; }
-.status-active { color: #4fc3f7 !important; }
-.status-done { color: #888 !important; }
+.ri-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 
-.rover-desc { font-size: 13px; color: rgba(255, 255, 255, 0.55); line-height: 1.6; flex: 1; min-width: 200px; }
+.ri-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.38);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
 
-/* ── 统计区 ── */
+.ri-val {
+  font-size: 13px;
+  color: #e0e0e0;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.ri-highlight {
+  color: #FF8C5A;
+  font-weight: 700;
+}
+
+.status-active { color: #4fc3f7 !important; font-weight: 600; }
+.status-done   { color: #888 !important; }
+
+/* 右侧内容区 */
+.rover-right {
+  flex: 1;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rover-desc {
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.75;
+  margin: 0;
+}
+
+/* 任务亮点 */
+.rover-highlights {}
+
+.rh-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 200, 100, 0.85);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rh-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rh-list li {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.5;
+}
+
+/* 科学仪器 */
+.ri-instr-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(130, 200, 255, 0.8);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ri-instr-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.instr-tag {
+  padding: 3px 10px;
+  background: rgba(79, 195, 247, 0.08);
+  border: 1px solid rgba(79, 195, 247, 0.22);
+  border-radius: 20px;
+  font-size: 11.5px;
+  color: rgba(160, 220, 255, 0.75);
+  font-family: monospace;
+}
+
+/* ── 统计 + 相机筛选（合并模块） ── */
 .stats-section {
   display: flex;
-  align-items: center;
-  gap: 24px;
-  padding: 16px 40px;
+  align-items: stretch;
+  gap: 0;
+  padding: 0 40px 4px;
   flex-wrap: wrap;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  margin: 0 40px;
+  overflow: hidden;
+}
+
+/* 左侧：数字+饼图 */
+.stats-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 20px 16px 0;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 垂直分隔线 */
+.stats-divider {
+  width: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 12px 0;
+  flex-shrink: 0;
+}
+
+/* 右侧：相机筛选 */
+.stats-cam {
+  padding: 16px 0 16px 24px;
+  min-width: 280px;
+  max-width: 400px;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .stat-card {
   text-align: center;
-  padding: 14px 24px;
+  padding: 12px 20px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
+  flex-shrink: 0;
 }
 
 .stat-number {
-  font-size: 32px;
+  font-size: 30px;
   font-weight: bold;
   color: #FF6B4A;
   font-family: monospace;
@@ -572,8 +882,8 @@ watch(chartRef, (el) => {
 
 .chart-wrap {
   flex: 1;
-  min-width: 200px;
-  height: 120px;
+  min-width: 140px;
+  height: 110px;
 }
 
 .echarts-container { width: 100%; height: 100%; }

@@ -1,7 +1,135 @@
+require('dotenv').config()
+
 const express = require('express')
 const path = require('path')
 const https = require('https')
 const app = express()
+
+const MARS_VISTA_API_KEY = process.env.MARS_VISTA_API_KEY || ''
+const MARS_VISTA_BASE_URL = 'https://api.marsvista.dev/api/v2'
+const NEBULUM_BASE_URL = 'https://rovers.nebulum.one/api/v1'
+
+function requestJson(url, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { headers }, (apiRes) => {
+      let data = ''
+      apiRes.on('data', chunk => { data += chunk })
+      apiRes.on('end', () => {
+        try {
+          const parsed = JSON.parse(data)
+          if (apiRes.statusCode < 200 || apiRes.statusCode >= 300) {
+            const err = new Error(`HTTP ${apiRes.statusCode}`)
+            err.statusCode = apiRes.statusCode
+            err.response = parsed
+            reject(err)
+            return
+          }
+          resolve(parsed)
+        } catch (e) {
+          reject(new Error('解析外部 API 响应失败'))
+        }
+      })
+    })
+    req.on('error', reject)
+    req.setTimeout(15000, () => {
+      req.destroy(new Error('外部 API 请求超时'))
+    })
+  })
+}
+
+function normalizeMarsVistaPhoto(item) {
+  const attrs = item.attributes || {}
+  const rover = item.relationships?.rover || {}
+  const roverAttrs = rover.attributes || {}
+  const camera = item.relationships?.camera || {}
+  const cameraAttrs = camera.attributes || {}
+
+  return {
+    id: item.id,
+    sol: attrs.sol,
+    camera: {
+      id: camera.id,
+      name: camera.id || 'UNKNOWN',
+      rover_id: rover.id,
+      full_name: cameraAttrs.full_name || camera.id || 'Unknown Camera'
+    },
+    img_src: attrs.img_src || attrs.images?.large || attrs.images?.medium || attrs.images?.full || attrs.images?.small,
+    earth_date: attrs.earth_date,
+    rover: {
+      id: rover.id,
+      name: roverAttrs.name || rover.id,
+      landing_date: roverAttrs.landing_date || null,
+      launch_date: roverAttrs.launch_date || null,
+      status: roverAttrs.status || null
+    },
+    title: attrs.title,
+    caption: attrs.caption,
+    credit: attrs.credit,
+    images: attrs.images,
+    dimensions: attrs.dimensions,
+    nasa_id: attrs.nasa_id
+  }
+}
+
+async function fetchMarsVistaPhotos({ rover, earthDate, sol, page = 1, camera }) {
+  if (!MARS_VISTA_API_KEY) {
+    throw new Error('MARS_VISTA_API_KEY 未配置')
+  }
+
+  const params = new URLSearchParams({
+    rovers: rover,
+    page: String(page),
+    per_page: '25',
+    include: 'rover,camera'
+  })
+
+  if (earthDate) params.set('earth_date', earthDate)
+  if (sol) params.set('sol', String(sol))
+  if (camera) params.set('cameras', camera)
+
+  const data = await requestJson(`${MARS_VISTA_BASE_URL}/photos?${params}`, {
+    'x-api-key': MARS_VISTA_API_KEY,
+    Accept: 'application/json'
+  })
+
+  return {
+    photos: Array.isArray(data.data) ? data.data.map(normalizeMarsVistaPhoto).filter(p => p.img_src) : [],
+    source: 'mars-vista',
+    meta: data.meta || null,
+    pagination: data.pagination || null,
+    links: data.links || null
+  }
+}
+
+async function fetchNebulumPhotos({ rover, earthDate, sol, page = 1, camera }) {
+  const params = new URLSearchParams({ page: String(page) })
+  if (earthDate) params.set('earth_date', earthDate)
+  if (sol) params.set('sol', String(sol))
+  if (camera) params.set('camera', camera)
+
+  const data = await requestJson(`${NEBULUM_BASE_URL}/rovers/${rover}/photos?${params}`)
+  return {
+    photos: data.photos || [],
+    source: 'nebulum',
+    meta: null,
+    pagination: null,
+    links: null
+  }
+}
+
+async function fetchRoverPhotos(options) {
+  try {
+    return await fetchMarsVistaPhotos(options)
+  } catch (err) {
+    console.warn(`Mars Vista API 不可用，回退 Nebulum: ${err.message}`)
+    const result = await fetchNebulumPhotos(options)
+    return {
+      ...result,
+      fallback: true,
+      fallback_reason: err.message
+    }
+  }
+}
 
 // 中间件
 app.use(express.json())
@@ -24,50 +152,72 @@ app.use('/api/horizons', ephemerisRouter)
 
 // ── NASA Mars Rover Photos API 代理 ──
 // 避免前端跨域，同时可在此加缓存
-app.get('/api/nasa/mars-photos/rovers/:rover/photos', (req, res) => {
+app.get('/api/nasa/mars-photos/rovers/:rover/photos', async (req, res) => {
   const { rover } = req.params
-  const { earth_date, page = 1 } = req.query
-  const NASA_KEY = process.env.NASA_API_KEY || 'DEMO_KEY'
+  const { earth_date, sol, page = 1, camera } = req.query
 
-  const apiUrl = `https://api.nasa.gov/mars-photos/api/v1/rovers/${rover}/photos?earth_date=${earth_date || '2023-06-15'}&page=${page}&api_key=${NASA_KEY}`
-
-  https.get(apiUrl, (apiRes) => {
-    let data = ''
-    apiRes.on('data', chunk => { data += chunk })
-    apiRes.on('end', () => {
-      try {
-        const parsed = JSON.parse(data)
-        res.json(parsed)
-      } catch (e) {
-        res.status(502).json({ success: false, error: '解析NASA API响应失败' })
-      }
+  try {
+    const result = await fetchRoverPhotos({
+      rover,
+      earthDate: earth_date,
+      sol,
+      page,
+      camera
     })
-  }).on('error', (err) => {
+    res.json(result)
+  } catch (err) {
     console.error('NASA API 请求失败:', err.message)
     res.status(502).json({ success: false, error: err.message, photos: [] })
-  })
+  }
+})
+
+// NASA Rover 最新有效日期（供前端初始加载使用）
+app.get('/api/nasa/mars-photos/rovers/:rover/latest', async (req, res) => {
+  const { rover } = req.params
+
+  // 硬编码的 fallback 日期（当 manifest 不可用时使用）
+  const fallbackDates = {
+    curiosity:    '2024-01-01',
+    perseverance: '2026-05-14',
+    opportunity:  '2018-06-11'
+  }
+
+  try {
+    const data = await requestJson(`${NEBULUM_BASE_URL}/manifests/${rover}`)
+    const manifest = data.photo_manifest
+    if (manifest && manifest.max_date) {
+      return res.json({
+        rover,
+        max_date: manifest.max_date,
+        max_sol: manifest.max_sol,
+        total_photos: manifest.total_photos,
+        source: 'nebulum-manifest'
+      })
+    }
+    throw new Error('manifest 响应格式异常')
+  } catch (err) {
+    console.warn(`获取 ${rover} manifest 失败，使用 fallback: ${err.message}`)
+    res.json({
+      rover,
+      max_date: fallbackDates[rover] || '2024-01-01',
+      max_sol: null,
+      total_photos: null,
+      source: 'fallback'
+    })
+  }
 })
 
 // NASA Rover 基本信息
-app.get('/api/nasa/mars-photos/rovers/:rover', (req, res) => {
+app.get('/api/nasa/mars-photos/rovers/:rover', async (req, res) => {
   const { rover } = req.params
-  const NASA_KEY = process.env.NASA_API_KEY || 'DEMO_KEY'
 
-  const apiUrl = `https://api.nasa.gov/mars-photos/api/v1/rovers/${rover}?api_key=${NASA_KEY}`
-
-  https.get(apiUrl, (apiRes) => {
-    let data = ''
-    apiRes.on('data', chunk => { data += chunk })
-    apiRes.on('end', () => {
-      try {
-        res.json(JSON.parse(data))
-      } catch (e) {
-        res.status(502).json({ success: false, error: '解析失败' })
-      }
-    })
-  }).on('error', (err) => {
+  try {
+    // Mars Vista 暂不依赖 manifest；Nebulum manifest 可作为任务周期信息来源。
+    const data = await requestJson(`${NEBULUM_BASE_URL}/manifests/${rover}`)
+    res.json(data)
+  } catch (err) {
     res.status(502).json({ success: false, error: err.message })
-  })
+  }
 })
 
 // ── 原有天体数据API（保留兼容性）──

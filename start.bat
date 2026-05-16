@@ -64,11 +64,13 @@ goto invalid
 echo.
 echo ========================================
 echo   启动开发服务器...
-echo   访问地址: http://localhost:3000
+echo   前端地址: http://localhost:3000
+echo   后端地址: http://localhost:8080
 echo   按 Ctrl+C 停止服务器
+echo   注意: 需要根目录有 .env 文件并配置 MARS_VISTA_API_KEY
 echo ========================================
 echo.
-call npm run dev
+call npm run dev:all
 goto end
 
 :prod

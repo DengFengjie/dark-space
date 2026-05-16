@@ -1,6 +1,7 @@
 /**
- * NASA Mars Rover Photos API 封装
- * 文档：https://api.nasa.gov/
+ * Mars Rover Photos API 封装
+ * 数据源：后端代理优先使用 Mars Vista API，失败时回退 Nebulum API
+ * 原 api.nasa.gov Mars Rover Photos API 已归档停用
  * 通过后端代理请求，避免跨域问题
  */
 
@@ -14,6 +15,18 @@ const BASE_URL = '/api/nasa'
  * @returns {Promise<Array>} 照片对象数组
  */
 export async function getMarsRoverPhotos(rover = 'curiosity', earthDate, page = 1) {
+  const result = await getMarsRoverPhotosResponse(rover, earthDate, page)
+  return result.photos || []
+}
+
+/**
+ * 获取火星车照片响应（包含照片、数据源、分页信息）
+ * @param {string} rover - 火星车名称
+ * @param {string} earthDate - 地球日期，格式 'YYYY-MM-DD'
+ * @param {number} page - 分页（每页25张）
+ * @returns {Promise<{photos: Array, source?: string, pagination?: Object, meta?: Object}>}
+ */
+export async function getMarsRoverPhotosResponse(rover = 'curiosity', earthDate, page = 1) {
   try {
     const params = new URLSearchParams({
       earth_date: earthDate || '2023-06-15',
@@ -22,10 +35,45 @@ export async function getMarsRoverPhotos(rover = 'curiosity', earthDate, page = 
     const res = await fetch(`${BASE_URL}/mars-photos/rovers/${rover}/photos?${params}`)
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`)
     const data = await res.json()
-    return data.photos || []
+    return {
+      ...data,
+      photos: data.photos || []
+    }
   } catch (err) {
     console.warn('获取火星照片失败，使用示例数据:', err.message)
-    return getFallbackPhotos(rover, earthDate)
+    return {
+      photos: getFallbackPhotos(rover, earthDate),
+      source: 'fallback',
+      fallback: true,
+      error: err.message
+    }
+  }
+}
+
+/**
+ * 获取火星车最新有效日期（供 Gallery 初始加载使用）
+ * @param {string} rover - 火星车名称
+ * @returns {Promise<{max_date: string, max_sol: number|null, total_photos: number|null, source: string}>}
+ */
+export async function getRoverLatestDate(rover = 'curiosity') {
+  const fallbacks = {
+    curiosity:    '2024-01-01',
+    perseverance: '2026-05-14',
+    opportunity:  '2018-06-11'
+  }
+  try {
+    const res = await fetch(`${BASE_URL}/mars-photos/rovers/${rover}/latest`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return await res.json()
+  } catch (err) {
+    console.warn(`获取 ${rover} 最新日期失败，使用 fallback:`, err.message)
+    return {
+      rover,
+      max_date: fallbacks[rover] || '2024-01-01',
+      max_sol: null,
+      total_photos: null,
+      source: 'fallback'
+    }
   }
 }
 

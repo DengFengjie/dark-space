@@ -6,7 +6,7 @@
       <!-- 标题区 -->
       <div class="page-hero">
         <h1 class="hero-title">🔴 火星任务画廊</h1>
-        <p class="hero-sub">来自NASA火星车的真实探测影像 · 数据实时同步自 NASA Open API</p>
+        <p class="hero-sub">来自NASA火星车的真实探测影像 · 数据优先同步自 Mars Vista API</p>
       </div>
 
       <!-- 控制栏 -->
@@ -28,26 +28,24 @@
           </button>
         </div>
 
-        <!-- 日期选择 -->
-        <div class="date-picker">
-          <label>📅 地球日期</label>
-          <input
-            type="date"
-            v-model="selectedDate"
-            :min="minDate"
-            :max="maxDate"
-            @change="fetchPhotos"
-            class="date-input"
-          />
-        </div>
-
         <!-- 相机筛选 -->
         <div class="camera-filter">
           <label>📷 相机</label>
-          <select v-model="selectedCamera" class="filter-select" @change="applyFilters">
+          <select v-model="selectedCamera" class="filter-select">
             <option value="">全部相机</option>
             <option v-for="cam in availableCameras" :key="cam" :value="cam">{{ cam }}</option>
           </select>
+        </div>
+
+        <!-- 已浏览日期范围（只读展示） -->
+        <div v-if="dateRangeLabel" class="date-range-badge">
+          <span class="date-range-icon">📅</span>
+          <span>{{ dateRangeLabel }}</span>
+        </div>
+
+        <div v-if="sourceLabel" class="source-badge">
+          <span>🛰️</span>
+          <span>{{ sourceLabel }}</span>
         </div>
       </div>
 
@@ -69,7 +67,7 @@
       <div class="stats-section">
         <div class="stat-card">
           <div class="stat-number">{{ photos.length }}</div>
-          <div class="stat-desc">当日照片</div>
+          <div class="stat-desc">已加载照片</div>
         </div>
         <div class="stat-card">
           <div class="stat-number">{{ availableCameras.length }}</div>
@@ -88,15 +86,15 @@
       <!-- 加载状态 -->
       <div v-if="loading" class="loading-state">
         <div class="loader"></div>
-        <span>正在从NASA服务器获取影像数据...</span>
+        <span>正在从火星服务器获取影像数据...</span>
       </div>
 
       <!-- 空状态 -->
-      <div v-else-if="!loading && filteredPhotos.length === 0" class="empty-state">
+      <div v-else-if="!loading && filteredPhotos.length === 0 && exhausted" class="empty-state">
         <div class="empty-icon">🔭</div>
-        <h3>该日期暂无照片数据</h3>
-        <p>请尝试选择其他日期，好奇号通常在火星每个工作日都有拍摄记录。</p>
-        <button class="retry-btn" @click="tryRandomDate">随机日期</button>
+        <h3>暂无更多照片</h3>
+        <p>当前火星车的照片数据已全部加载完毕。</p>
+        <button class="retry-btn" @click="resetAndFetch">重新加载</button>
       </div>
 
       <!-- 照片网格 -->
@@ -127,7 +125,7 @@
       </div>
 
       <!-- 加载更多 -->
-      <div v-if="filteredPhotos.length > 0 && hasMore" class="load-more">
+      <div v-if="filteredPhotos.length > 0 && !exhausted" class="load-more">
         <button class="load-more-btn" @click="loadMore" :disabled="loadingMore">
           {{ loadingMore ? '加载中...' : '加载更多' }}
         </button>
@@ -156,39 +154,57 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import Header from '../components/Header.vue'
-import { getMarsRoverPhotos, ROVER_CONFIG } from '../api/nasaApi.js'
+import { getMarsRoverPhotosResponse, getRoverLatestDate, ROVER_CONFIG } from '../api/nasaApi.js'
 import * as echarts from 'echarts'
 
 // ── 状态 ──
 const selectedRover = ref('curiosity')
-const selectedDate = ref('2023-06-15')
 const selectedCamera = ref('')
 const photos = ref([])
 const loading = ref(false)
 const loadingMore = ref(false)
-const currentPage = ref(1)
-const hasMore = ref(false)
 const lightboxPhoto = ref(null)
 const chartRef = ref(null)
+const exhausted = ref(false)   // 是否已无更多数据可加载
+const oldestDate = ref('')     // 已加载的最早日期（用于展示，响应式）
+const newestDate = ref('')     // 已加载的最新日期（用于展示，响应式）
+const dataSource = ref('')      // 当前数据源
 let chart = null
+
+// 内部分批状态（对用户不可见）
+let currentDate = ''           // 当前正在加载的日期
+let currentPage = 1            // 当前日期的页码
 
 // ── 火星车配置 ──
 const roverList = [
-  { key: 'curiosity', name: '好奇号', icon: '🤖', status: '活跃' },
-  { key: 'perseverance', name: '毅力号', icon: '🤖', status: '活跃' },
-  { key: 'opportunity', name: '机遇号', icon: '🤖', status: '已完成' }
+  { key: 'curiosity',     name: '好奇号', icon: '🤖', status: '活跃' },
+  { key: 'perseverance',  name: '毅力号', icon: '🤖', status: '活跃' },
+  { key: 'opportunity',   name: '机遇号', icon: '🤖', status: '已完成' }
 ]
 
 const currentRoverConfig = computed(() => ROVER_CONFIG[selectedRover.value])
 
-// 日期范围限制
-const minDate = computed(() => {
-  const configs = { curiosity: '2012-08-07', perseverance: '2021-02-19', opportunity: '2004-01-26' }
-  return configs[selectedRover.value] || '2004-01-01'
+// 各火星车的最早着陆日期（用于限制 loadMore 向前推的边界）
+const roverMinDate = {
+  curiosity:    '2012-08-07',
+  perseverance: '2021-02-19',
+  opportunity:  '2004-01-26'
+}
+
+// ── 已浏览日期范围展示 ──
+const dateRangeLabel = computed(() => {
+  if (!newestDate.value && !oldestDate.value) return ''
+  if (newestDate.value === oldestDate.value) return `当前日期：${newestDate.value}`
+  return `已浏览：${oldestDate.value} ~ ${newestDate.value}`
 })
-const maxDate = computed(() => {
-  const configs = { curiosity: '2024-12-31', perseverance: '2024-12-31', opportunity: '2018-06-11' }
-  return configs[selectedRover.value] || '2024-12-31'
+
+const sourceLabel = computed(() => {
+  const labels = {
+    'mars-vista': 'Mars Vista',
+    nebulum: 'Nebulum 备用源',
+    fallback: '本地示例数据'
+  }
+  return labels[dataSource.value] || ''
 })
 
 // ── 相机列表 ──
@@ -203,17 +219,45 @@ const filteredPhotos = computed(() => {
   return photos.value.filter(p => p.camera?.name === selectedCamera.value)
 })
 
-// ── 获取照片 ──
+// 将日期字符串往前推一天
+function prevDay(dateStr) {
+  const d = new Date(dateStr)
+  d.setDate(d.getDate() - 1)
+  return d.toISOString().split('T')[0]
+}
+
+// ── 初始加载（先查最新有效日期，再从最新开始加载） ──
 async function fetchPhotos() {
   loading.value = true
-  currentPage.value = 1
+  exhausted.value = false
   photos.value = []
   selectedCamera.value = ''
+  newestDate.value = ''
+  oldestDate.value = ''
+  dataSource.value = ''
+  currentPage = 1
 
   try {
-    const result = await getMarsRoverPhotos(selectedRover.value, selectedDate.value, 1)
-    photos.value = result
-    hasMore.value = result.length >= 25
+    // Step 1：查询该火星车最新有效日期
+    const latestInfo = await getRoverLatestDate(selectedRover.value)
+    currentDate = latestInfo.max_date
+
+    // Step 2：用最新日期加载第一页照片
+    const result = await getMarsRoverPhotosResponse(selectedRover.value, currentDate, 1)
+    dataSource.value = result.source || ''
+    const list = result.photos || []
+    if (list.length > 0) {
+      photos.value = list
+      newestDate.value = list[0]?.earth_date || currentDate
+      oldestDate.value = list[list.length - 1]?.earth_date || currentDate
+      const totalPages = result.pagination?.total_pages || 1
+      if (currentPage >= totalPages) {
+        currentPage = 999 // 标记当前日期已满载，下次 loadMore 推到前一天
+      }
+    } else {
+      // 最新日期也没数据（机遇号等情况），标记当前日期已满，loadMore 会继续往前找
+      currentPage = 999
+    }
   } finally {
     loading.value = false
     await nextTick()
@@ -221,13 +265,58 @@ async function fetchPhotos() {
   }
 }
 
+// ── 加载更多（当前日期下一页 or 推到前一天） ──
 async function loadMore() {
+  if (loadingMore.value || exhausted.value) return
   loadingMore.value = true
-  currentPage.value++
+
+  const minDate = roverMinDate[selectedRover.value] || '2004-01-01'
+
   try {
-    const more = await getMarsRoverPhotos(selectedRover.value, selectedDate.value, currentPage.value)
-    photos.value.push(...more)
-    hasMore.value = more.length >= 25
+    // 如果当前页已经加载完（< 25张），往前推一天
+    if (currentPage >= 999) {
+      const next = prevDay(currentDate)
+      // 超出最早日期，标记穷尽
+      if (next < minDate) {
+        exhausted.value = true
+        return
+      }
+      currentDate = next
+      currentPage = 1
+    } else {
+      currentPage++
+    }
+
+    // 最多连续跳过 30 天无数据的日期
+    let skipCount = 0
+    while (skipCount < 30) {
+      const result = await getMarsRoverPhotosResponse(selectedRover.value, currentDate, currentPage)
+      dataSource.value = result.source || dataSource.value
+      const list = result.photos || []
+      if (list.length > 0) {
+        photos.value.push(...list)
+        oldestDate.value = list[list.length - 1]?.earth_date || currentDate
+        const totalPages = result.pagination?.total_pages || 1
+        if (currentPage >= totalPages) {
+          currentPage = 999 // 当前日期已满
+        }
+        break
+      } else {
+        // 这天没数据，继续往前
+        const next = prevDay(currentDate)
+        if (next < minDate) {
+          exhausted.value = true
+          break
+        }
+        currentDate = next
+        currentPage = 1
+        skipCount++
+      }
+    }
+    if (skipCount >= 30) {
+      // 连续30天无数据视为穷尽
+      exhausted.value = true
+    }
   } finally {
     loadingMore.value = false
     updateChart()
@@ -236,21 +325,10 @@ async function loadMore() {
 
 function selectRover(key) {
   selectedRover.value = key
-  // 重置到该火星车的典型日期
-  const dates = { curiosity: '2023-06-15', perseverance: '2022-03-01', opportunity: '2015-06-03' }
-  selectedDate.value = dates[key] || '2023-06-15'
   fetchPhotos()
 }
 
-function applyFilters() {
-  // 过滤由 computed 处理，此处仅为触发点
-}
-
-function tryRandomDate() {
-  const start = new Date(minDate.value).getTime()
-  const end = new Date(maxDate.value).getTime()
-  const rand = new Date(start + Math.random() * (end - start))
-  selectedDate.value = rand.toISOString().split('T')[0]
+function resetAndFetch() {
   fetchPhotos()
 }
 
@@ -299,16 +377,21 @@ function handleImgError(event) {
   event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFhMGEwMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjQ4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7wn5agPC90ZXh0Pjwvc3ZnPg=='
 }
 
+// ── ECharts resize ──
+const handleResize = () => { chart?.resize() }
+
 // ── 键盘关闭灯箱 ──
 const handleKey = (e) => { if (e.key === 'Escape') closeLightbox() }
 
 onMounted(() => {
   fetchPhotos()
   window.addEventListener('keydown', handleKey)
+  window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKey)
+  window.removeEventListener('resize', handleResize)
   chart?.dispose()
 })
 
@@ -392,7 +475,7 @@ watch(chartRef, (el) => {
 .tab-status.active { color: #4fc3f7; }
 .tab-status.done { color: #888; }
 
-.date-picker, .camera-filter {
+.camera-filter {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -400,7 +483,7 @@ watch(chartRef, (el) => {
   color: rgba(255, 255, 255, 0.5);
 }
 
-.date-input, .filter-select {
+.filter-select {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: #fff;
@@ -411,7 +494,28 @@ watch(chartRef, (el) => {
   cursor: pointer;
 }
 
-.date-input::-webkit-calendar-picker-indicator { filter: invert(0.8); cursor: pointer; }
+/* ── 日期范围徽标 ── */
+.date-range-badge, .source-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(255, 107, 74, 0.08);
+  border: 1px solid rgba(255, 107, 74, 0.2);
+  border-radius: 20px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.date-range-badge { margin-left: auto; }
+
+.source-badge {
+  background: rgba(79, 195, 247, 0.08);
+  border-color: rgba(79, 195, 247, 0.25);
+  color: rgba(180, 230, 255, 0.72);
+}
+
+.date-range-icon { font-size: 13px; }
 
 /* ── 火星车信息卡 ── */
 .rover-info-card {

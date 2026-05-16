@@ -59,8 +59,19 @@
 
     <div class="controls">
       <button @click="toggleOrbits" class="control-btn">{{ showOrbits ? '隐藏' : '显示' }}轨道</button>
-      <button @click="toggleRotation" class="control-btn">{{ isRotating ? '暂停' : '恢复' }}旋转</button>
+      <button @click="toggleRotation" class="control-btn">{{ isRotating ? '暂停' : '恢复' }}运行</button>
       <button @click="resetCamera" class="control-btn">重置视角</button>
+      <div class="speed-control">
+        <span class="speed-label">速度</span>
+        <select v-model="animSpeed" class="speed-select">
+          <option :value="0.25">0.25×</option>
+          <option :value="0.5">0.5×</option>
+          <option :value="1">1×</option>
+          <option :value="2">2×</option>
+          <option :value="5">5×</option>
+          <option :value="10">10×</option>
+        </select>
+      </div>
     </div>
 
     <div ref="canvasContainer" class="canvas-container"></div>
@@ -82,6 +93,7 @@ const hoveredName = ref('')
 const selectedProbeInfo = ref(null)
 const moonPhaseName = ref('新月')
 const moonPhaseProgress = ref(0)
+const animSpeed = ref(1)
 
 let scene, camera, renderer, controls, animationId
 let moonMesh, earthMesh, moonOrbitLine
@@ -164,12 +176,13 @@ function computeMoonPhase(rotation) {
   if (angle < 0) angle += Math.PI * 2
   // 当 earthRotation=0 时月球在 x 最大处（近光源），此时为新月
   // 阶段 0 = 新月, 阶段 4 = 满月
-  const phaseIdx = Math.round((angle / (Math.PI * 2)) * 8) % 8
+  const phaseIdx = Math.floor((angle / (Math.PI * 2)) * 8) % 8
   moonPhaseName.value = PHASE_NAMES[phaseIdx]
   moonPhaseProgress.value = Math.round((angle / (Math.PI * 2)) * 100)
 }
 
 // ── 绘制右下角月相 Canvas ──
+// 算法：底色全暗 → 画亮半圆（盈期右半/亏期左半）→ terminator 椭圆修正
 function drawMoonPhase(rotation) {
   const canvas = moonPhaseCanvas.value
   if (!canvas) return
@@ -177,55 +190,48 @@ function drawMoonPhase(rotation) {
   const cx = 60, cy = 60, r = 48
   ctx.clearRect(0, 0, 120, 120)
 
-  // 背景
-  ctx.fillStyle = 'rgba(0,0,0,0)'
-
-  // 月球轮廓圆
-  ctx.beginPath()
-  ctx.arc(cx, cy, r, 0, Math.PI * 2)
-  ctx.fillStyle = '#1a1a2e'
-  ctx.fill()
-  ctx.strokeStyle = 'rgba(100,163,255,0.4)'
-  ctx.lineWidth = 1.5
-  ctx.stroke()
-
-  // 将公转角度映射到月相（0→新月，π→满月：月球在光源同侧时从地球看到暗面）
-  // 月球位置 x = -12 + 20*cos(rotation)，光源在 x≈60 右侧
-  // rotation=0 → moon x=8（近光源）→ 暗面朝地球 → 新月
-  // rotation=π → moon x=-32（远离光源）→ 亮面朝地球 → 满月
+  // 将公转角度映射到月相（0→新月，π→满月）
   let phase = rotation % (Math.PI * 2)
   if (phase < 0) phase += Math.PI * 2
 
   const cosA = Math.cos(phase)
+  const isWaxing = phase <= Math.PI  // 朔→望：盈（右半亮）；望→朔：亏（左半亮）
 
-  // 绘制亮面
-  ctx.beginPath()
-  ctx.arc(cx, cy, r, 0, Math.PI * 2)
-  ctx.fillStyle = '#e8e0c8'
-  ctx.fill()
-
-  // 明暗分界（terminator）
-  // 用椭圆遮罩模拟：cosA > 0 时亮面在右边（盈），< 0 时在左边（亏）
-  const termX = cx + cosA * r
-
+  // 裁剪到圆形区域
   ctx.save()
   ctx.beginPath()
-  ctx.arc(cx, cy, r + 1, 0, Math.PI * 2)
+  ctx.arc(cx, cy, r, 0, Math.PI * 2)
   ctx.clip()
 
-  // 暗面
-  const darkWidth = Math.abs(cosA) * r * 2
-  if (Math.abs(cosA) > 0.02) {
-    const darkStart = cosA > 0 ? termX : termX - darkWidth
-    ctx.fillStyle = '#1a1a2e'
+  // ① 底色：全暗
+  ctx.fillStyle = '#1a1a2e'
+  ctx.fillRect(0, 0, 120, 120)
+
+  // ② 亮面半圆（盈=右半，亏=左半）
+  ctx.fillStyle = '#e8e0c8'
+  ctx.beginPath()
+  if (isWaxing) {
+    ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2)  // 右半圆
+  } else {
+    ctx.arc(cx, cy, r, Math.PI / 2, Math.PI * 1.5) // 左半圆
+  }
+  ctx.closePath()
+  ctx.fill()
+
+  // ③ terminator 椭圆修正：水平半径 = |cosA| * r
+  //    cosA > 0（新月侧）→ 暗椭圆遮住多余亮面
+  //    cosA < 0（满月侧）→ 亮椭圆补充更多亮面
+  const tw = Math.abs(cosA) * r
+  if (tw > 0.5) {
     ctx.beginPath()
-    ctx.ellipse(termX, cy, r * 1.02, r * 1.02, 0, 0, Math.PI * 2)
+    ctx.ellipse(cx, cy, tw, r, 0, 0, Math.PI * 2)
+    ctx.fillStyle = cosA > 0 ? '#1a1a2e' : '#e8e0c8'
     ctx.fill()
   }
 
   ctx.restore()
 
-  // 重新描边
+  // 边框
   ctx.beginPath()
   ctx.arc(cx, cy, r, 0, Math.PI * 2)
   ctx.strokeStyle = 'rgba(100,163,255,0.5)'
@@ -497,19 +503,20 @@ function setupRaycaster() {
 function animate() {
   animationId = requestAnimationFrame(animate)
   if (isRotating.value) {
-    earthRotation += 0.00016
+    const spd = animSpeed.value
+    earthRotation += 0.00016 * spd
     moonMesh.position.x = -12 + Math.cos(earthRotation) * MOON_ORBIT_RADIUS
     moonMesh.position.z = Math.sin(earthRotation) * MOON_ORBIT_RADIUS
 
-    earthMesh.rotation.y += 0.00025
-    moonMesh.rotation.y += 0.00016
+    earthMesh.rotation.y += 0.00025 * spd
+    moonMesh.rotation.y += 0.00016 * spd
 
     if (moonProbeGroup) moonProbeGroup.position.copy(moonMesh.position)
 
     probeObjects.forEach(obj => {
       if (!visibleProbes[obj.key]) return
       const cfg = obj.config
-      obj.angle += cfg.orbitSpeed
+      obj.angle += cfg.orbitSpeed * spd
       if (cfg.flyby) {
         const curve = new THREE.QuadraticBezierCurve3(
           new THREE.Vector3(-25, 2, -3), new THREE.Vector3(-6, 3, 8), new THREE.Vector3(15, -1, -10)
@@ -521,11 +528,9 @@ function animate() {
       }
     })
 
-    // 每 N 帧更新月相面板（降低更新频率）
+    // 每帧更新月相面板
     computeMoonPhase(earthRotation)
-    if (Math.floor(earthRotation * 400) !== Math.floor((earthRotation - 0.00016) * 400)) {
-      drawMoonPhase(earthRotation)
-    }
+    drawMoonPhase(earthRotation)
   }
   controls.update()
   renderer.render(scene, camera)
@@ -655,6 +660,24 @@ onUnmounted(() => {
 .control-btn:hover {
   background: rgba(255, 255, 255, 0.15); border-color: rgba(100, 150, 255, 0.5);
   transform: translateY(-2px); box-shadow: 0 5px 15px rgba(100, 150, 255, 0.25);
+}
+
+.speed-control {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 22px; padding: 0 14px; height: 42px; backdrop-filter: blur(10px);
+}
+.speed-label {
+  color: rgba(255, 255, 255, 0.6); font-size: 12px; white-space: nowrap;
+}
+.speed-select {
+  background: transparent; border: none; outline: none;
+  color: #fff; font-size: 13px; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  padding-right: 4px;
+}
+.speed-select option {
+  background: #0a0f2e; color: #fff;
 }
 
 .canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }

@@ -66,8 +66,8 @@
             <span class="s-val">{{ store.julianDay.toFixed(1) }}</span>
           </div>
           <div class="status-row">
-            <span class="s-key">播放状态</span>
-            <span class="s-val" :class="{ playing: store.isPlaying }">{{ store.isPlaying ? '▶ 播放中' : '⏸ 暂停' }}</span>
+            <span class="s-key">运行状态</span>
+            <span class="s-val" :class="{ playing: store.isPlaying }">{{ store.isPlaying ? '▶ 运行中' : '⏸ 暂停' }}</span>
           </div>
         </div>
       </div>

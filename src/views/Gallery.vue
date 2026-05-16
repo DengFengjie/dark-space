@@ -1,6 +1,6 @@
 <template>
   <div class="gallery-page">
-    <Header />
+    <Header :show-date="true" />
 
     <div class="gallery-content">
       <!-- 标题区 -->
@@ -767,8 +767,6 @@ watch(chartRef, (el) => {
 }
 
 /* 任务亮点 */
-.rover-highlights {}
-
 .rh-title {
   font-size: 12px;
   font-weight: 700;

@@ -260,7 +260,7 @@ export class DeepMarsScene {
 
     // 灯光 —— 展示模式：全球均匀可见，方便浏览高精度地形
     // 强环境光保证背光半球不黑，方向光保留少量立体感
-    const ambient = new THREE.AmbientLight(0xffddc8, 1.6)
+    const ambient = new THREE.AmbientLight(0xffddc8, 0.4)
     this.scene.add(ambient)
 
     // 半球光：天空偏暖橙 / 地面偏深红，增加柔和层次

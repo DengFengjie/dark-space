@@ -256,7 +256,7 @@ export class DeepMoonScene {
 
     // 灯光 —— 展示模式：全球均匀可见，方便浏览高精度地形
     // 强环境光保证背光半球不黑，方向光保留少量立体感
-    const ambientLight = new THREE.AmbientLight(0xdce8ff, 1.6)
+    const ambientLight = new THREE.AmbientLight(0xdce8ff, 0.4)
     this.scene.add(ambientLight)
 
     // 半球光：天空偏冷白 / 地面偏深灰，增加柔和层次（月球色调）

@@ -8,7 +8,7 @@
       <div class="nav-container">
         <div class="logo">
           <span class="logo-icon">🌌</span>
-          <span class="logo-text">深空探测平台</span>
+          <span class="logo-text">深空探测可视化平台</span>
         </div>
         <ul class="nav-menu">
           <li><a href="#home" class="nav-link active">首页</a></li>

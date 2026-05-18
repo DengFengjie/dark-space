@@ -24,14 +24,16 @@ export async function getMarsRoverPhotos(rover = 'curiosity', earthDate, page = 
  * @param {string} rover - 火星车名称
  * @param {string} earthDate - 地球日期，格式 'YYYY-MM-DD'
  * @param {number} page - 分页（每页25张）
+ * @param {string} [camera] - 可选，按相机代码过滤（如 'NAVCAM'），不传则返回全部
  * @returns {Promise<{photos: Array, source?: string, pagination?: Object, meta?: Object}>}
  */
-export async function getMarsRoverPhotosResponse(rover = 'curiosity', earthDate, page = 1) {
+export async function getMarsRoverPhotosResponse(rover = 'curiosity', earthDate, page = 1, camera = '') {
   try {
     const params = new URLSearchParams({
       earth_date: earthDate || '2023-06-15',
       page
     })
+    if (camera) params.set('camera', camera)
     const res = await fetch(`${BASE_URL}/mars-photos/rovers/${rover}/photos?${params}`)
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`)
     const data = await res.json()
@@ -87,7 +89,8 @@ export async function getRoverManifest(rover = 'curiosity') {
     const res = await fetch(`${BASE_URL}/mars-photos/rovers/${rover}`)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
-    return data.rover || null
+    // 后端返回 { success, rover, source, manifest }
+    return data.manifest || null
   } catch (err) {
     console.warn('获取火星车信息失败:', err.message)
     return ROVER_MANIFESTS[rover] || null

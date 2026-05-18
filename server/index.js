@@ -207,16 +207,52 @@ app.get('/api/nasa/mars-photos/rovers/:rover/latest', async (req, res) => {
   }
 })
 
-// NASA Rover 基本信息
+// NASA Rover 基本信息（manifest，前端 getRoverManifest() 调用）
 app.get('/api/nasa/mars-photos/rovers/:rover', async (req, res) => {
   const { rover } = req.params
+  const fallbackManifests = {
+    curiosity: {
+      name: 'Curiosity', landing_date: '2012-08-06', launch_date: '2011-11-26',
+      status: 'active', max_sol: 4000, max_date: '2024-01-01', total_photos: 695670
+    },
+    perseverance: {
+      name: 'Perseverance', landing_date: '2021-02-18', launch_date: '2020-07-30',
+      status: 'active', max_sol: 1100, max_date: '2024-01-01', total_photos: 272062
+    },
+    opportunity: {
+      name: 'Opportunity', landing_date: '2004-01-25', launch_date: '2003-07-07',
+      status: 'complete', max_sol: 5111, max_date: '2018-06-11', total_photos: 228771
+    }
+  }
 
   try {
-    // Mars Vista 暂不依赖 manifest；Nebulum manifest 可作为任务周期信息来源。
     const data = await requestJson(`${NEBULUM_BASE_URL}/manifests/${rover}`)
-    res.json(data)
+    const manifest = data.photo_manifest
+    if (manifest) {
+      return res.json({
+        success: true,
+        rover,
+        source: 'nebulum-manifest',
+        manifest: {
+          name: manifest.name,
+          landing_date: manifest.landing_date,
+          launch_date: manifest.launch_date,
+          status: manifest.status,
+          max_sol: manifest.max_sol,
+          max_date: manifest.max_date,
+          total_photos: manifest.total_photos
+        }
+      })
+    }
+    throw new Error('manifest 响应格式异常')
   } catch (err) {
-    res.status(502).json({ success: false, error: err.message })
+    console.warn(`获取 ${rover} manifest 失败，使用 fallback: ${err.message}`)
+    res.json({
+      success: true,
+      rover,
+      source: 'fallback',
+      manifest: fallbackManifests[rover] || fallbackManifests.curiosity
+    })
   }
 })
 
@@ -234,10 +270,20 @@ const celestialData = {
   ]
 }
 
-app.get('/api/planets', (req, res) => res.json(celestialData.planets))
+// ⚠️ deprecated：前端已改用本地静态配置（src/three/sceneObjects.js），此接口仅保留兼容性
+app.get('/api/planets', (req, res) => {
+  res.json({
+    deprecated: true,
+    message: '此接口已废弃，前端使用本地静态数据，此接口仅保留历史兼容性',
+    data: celestialData.planets
+  })
+})
 
+// ⚠️ deprecated：前端已改用本地静态配置，此接口仅保留兼容性
 app.get('/api/solar-system', (req, res) => {
   res.json({
+    deprecated: true,
+    message: '此接口已废弃，前端使用本地静态数据，此接口仅保留历史兼容性',
     success: true,
     data: {
       name: '太阳系', age: '约46亿年',

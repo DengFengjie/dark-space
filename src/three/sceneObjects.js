@@ -628,6 +628,23 @@ export function createOrbitLine(scene, key, jd) {
 }
 
 /**
+ * 用外部数据点（如来自 JPL Horizons 的精确轨道点）替换轨道线几何体
+ * 适用于在本地开普勒计算轨道线已渲染后，后台异步拉取更精确数据并更新
+ * @param {THREE.Line} orbitLine - createOrbitLine() 返回的轨道线对象
+ * @param {Array<{x,y,z}>} points    - 日心黄道坐标点数组（AU）
+ */
+export function updateOrbitLineFromPoints(orbitLine, points) {
+  if (!orbitLine || !points || points.length < 2) return
+
+  // 将 AU 黄道坐标转成 Three.js 场景坐标
+  const pts = points.map(p => auToScene(p.x, p.y, p.z))
+
+  // 替换几何体（直接 setFromPoints 会重新分配 buffer，不会内存泄漏）
+  orbitLine.geometry.dispose()
+  orbitLine.geometry = new THREE.BufferGeometry().setFromPoints(pts)
+}
+
+/**
  * 更新所有行星位置（每帧调用，时间推进时重算位置）
  * @param {Object} planetMeshes - { key: THREE.Mesh }
  * @param {number} jd - 当前儒略日

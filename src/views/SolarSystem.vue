@@ -82,7 +82,8 @@ import { initThree, disposeThree, flyToPosition } from '../three/initThree.js'
 import {
   createStarfield, createSun, createPlanet, createOrbitLine,
   updatePlanetPositions, createProbeTrajectory, addPlanetLabel,
-  updateLabels, updateProbePositions, PLANET_CONFIG, PROBE_MODELS, PROBE_INFO, loadProbeModel
+  updateLabels, updateProbePositions, updateOrbitLineFromPoints,
+  PLANET_CONFIG, PROBE_MODELS, PROBE_INFO, loadProbeModel
 } from '../three/sceneObjects.js'
 import { BodyRaycaster, SelectionHighlight } from '../three/controls.js'
 import {
@@ -94,7 +95,7 @@ import {
   generateDeepImpactTrajectory, generateMarsGlobalSurveyorTrajectory
 } from '../utils/orbitCalc.js'
 import { dateStrToJulian } from '../utils/timeUtils.js'
-import { getProbeTrajectory } from '../api/horizonsApi.js'
+import { getBatchProbeTrajectories, getPlanetOrbitPath } from '../api/horizonsApi.js'
 import Header from '../components/Header.vue'
 import InfoPanel from '../components/InfoPanel.vue'
 import Timeline from '../components/Timeline.vue'
@@ -214,11 +215,10 @@ async function buildProbeTrajectories() {
 
   if (!store.showProbeTrajectories) return
 
-  // 并行加载全部 GLB 模型 + 请求真实轨迹数据（两组 Promise.all 同时进行）
+  // 并行加载全部 GLB 模型 + 批量请求真实轨迹数据（只发 1 个 HTTP 请求代替 11 个）
   const [
     models,
-    [v1Api, v2Api, junoApi, parkerApi, galileoApi, cassiniApi, rosettaApi,
-     pioneerApi, aceApi, deepImpactApi, mgsApi]
+    trajectoriesMap
   ] = await Promise.all([
     // 同时加载 11 个模型
     Promise.all([
@@ -234,19 +234,19 @@ async function buildProbeTrajectories() {
       loadProbeModel(PROBE_MODELS.deepImpact),
       loadProbeModel(PROBE_MODELS.marsGlobalSurveyor),
     ]),
-    // 同时请求 11 条轨迹（通过后端代理 → JPL Horizons）
-    Promise.all([
-      getProbeTrajectory('voyager1',          '1977-09-05', '2030-01-01'),
-      getProbeTrajectory('voyager2',          '1977-08-20', '2030-01-01'),
-      getProbeTrajectory('juno',              '2011-08-05', '2026-12-31'),
-      getProbeTrajectory('parker',            '2018-08-12', '2026-12-31'),
-      getProbeTrajectory('galileo',           '1989-10-18', '2003-12-31'),
-      getProbeTrajectory('cassini',           '1997-10-15', '2017-12-31'),
-      getProbeTrajectory('rosetta',           '2004-03-02', '2016-12-31'),
-      getProbeTrajectory('pioneer',           '1972-03-02', '2003-12-31'),
-      getProbeTrajectory('ace',               '1997-08-25', '2030-01-01'),
-      getProbeTrajectory('deepImpact',        '2005-01-12', '2013-12-31'),
-      getProbeTrajectory('marsGlobalSurveyor','1996-11-07', '2006-12-31'),
+    // 批量请求 11 条轨迹（单次 POST → 后端串行代理 JPL Horizons + 缓存）
+    getBatchProbeTrajectories([
+      { key: 'voyager1',           probeKey: 'voyager1',           startTime: '1977-09-05', stopTime: '2030-01-01' },
+      { key: 'voyager2',           probeKey: 'voyager2',           startTime: '1977-08-20', stopTime: '2030-01-01' },
+      { key: 'juno',               probeKey: 'juno',               startTime: '2011-08-05', stopTime: '2026-12-31' },
+      { key: 'parker',             probeKey: 'parker',             startTime: '2018-08-12', stopTime: '2026-12-31' },
+      { key: 'galileo',            probeKey: 'galileo',            startTime: '1989-10-18', stopTime: '2003-12-31' },
+      { key: 'cassini',            probeKey: 'cassini',            startTime: '1997-10-15', stopTime: '2017-12-31' },
+      { key: 'rosetta',            probeKey: 'rosetta',            startTime: '2004-03-02', stopTime: '2016-12-31' },
+      { key: 'pioneer',            probeKey: 'pioneer',            startTime: '1972-03-02', stopTime: '2003-12-31' },
+      { key: 'ace',                probeKey: 'ace',                startTime: '1997-08-25', stopTime: '2030-01-01' },
+      { key: 'deepImpact',         probeKey: 'deepImpact',         startTime: '2005-01-12', stopTime: '2013-12-31' },
+      { key: 'marsGlobalSurveyor', probeKey: 'marsGlobalSurveyor', startTime: '1996-11-07', stopTime: '2006-12-31' },
     ])
   ])
 
@@ -254,6 +254,19 @@ async function buildProbeTrajectories() {
     v1Model, v2Model, junoModel, parkerModel, galileoModel, cassiniModel, rosettaModel,
     pioneerModel, aceModel, deepImpactModel, mgsModel
   ] = models
+
+  // 从批量返回结果中按 key 取各探测器的轨迹数组
+  const v1Api           = trajectoriesMap['voyager1']           || []
+  const v2Api           = trajectoriesMap['voyager2']           || []
+  const junoApi         = trajectoriesMap['juno']               || []
+  const parkerApi       = trajectoriesMap['parker']             || []
+  const galileoApi      = trajectoriesMap['galileo']            || []
+  const cassiniApi      = trajectoriesMap['cassini']            || []
+  const rosettaApi      = trajectoriesMap['rosetta']            || []
+  const pioneerApi      = trajectoriesMap['pioneer']            || []
+  const aceApi          = trajectoriesMap['ace']                || []
+  const deepImpactApi   = trajectoriesMap['deepImpact']         || []
+  const mgsApi          = trajectoriesMap['marsGlobalSurveyor'] || []
 
   // 将 API 返回的 {time, x, y, z} 转为带 jd 的采样点；失败则回退到本地近似
   const toSamples = (apiData) => {
@@ -452,6 +465,37 @@ function onProbeClick(probeKey) {
 }
 
 // ──────────────────────────────────────────────────────────
+// 行星轨道线 Horizons 增强（非阻塞，失败时保持本地开普勒轨道）
+// 流程：initScene() 用本地 Keplerian 数据先渲染 → 此函数后台异步拉取
+//       Horizons 精确数据 → 成功则替换轨道线几何，用户无感知切换
+// 注意：ssd.jpl.nasa.gov 在中国大陆网络下通常不可达，后端超时后
+//       返回 { success: false, data: [] }，轨道线保持本地计算结果不变。
+// ──────────────────────────────────────────────────────────
+async function enhanceOrbitLinesFromHorizons() {
+  const planetKeys  = Object.keys(PLANET_CONFIG)
+  const centerDate  = store.currentDateStr || new Date().toISOString().slice(0, 10)
+  let enhanced = 0
+
+  await Promise.allSettled(
+    planetKeys.map(async (key) => {
+      try {
+        const points = await getPlanetOrbitPath(key, centerDate, 180)
+        if (points && points.length >= 30 && orbitLines[key]) {
+          updateOrbitLineFromPoints(orbitLines[key], points)
+          enhanced++
+        }
+      } catch {
+        // 单颗行星失败不影响其他行星
+      }
+    })
+  )
+
+  if (enhanced > 0) {
+    console.log(`[Horizons] 已用精确轨道数据更新 ${enhanced} 条行星轨道线`)
+  }
+}
+
+// ──────────────────────────────────────────────────────────
 // 监听 store 变化
 // ──────────────────────────────────────────────────────────
 watch(() => store.showProbeTrajectories, () => buildProbeTrajectories())
@@ -462,6 +506,8 @@ watch(() => store.showProbeTrajectories, () => buildProbeTrajectories())
 onMounted(() => {
   initScene()
   animate(0)
+  // 后台异步增强行星轨道精度（不阻塞渲染，失败静默回退）
+  enhanceOrbitLinesFromHorizons()
 })
 
 onUnmounted(() => {

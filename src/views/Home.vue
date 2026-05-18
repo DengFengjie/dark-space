@@ -23,11 +23,11 @@
     <section id="home" class="hero-section">
       <div class="hero-content">
         <h1 class="hero-title">
-          <span class="title-line">探索宇宙的</span>
-          <span class="title-highlight">无限奥秘</span>
+          <span class="title-line">把太阳系装进</span>
+          <span class="title-highlight">浏览器</span>
         </h1>
         <p class="hero-subtitle">
-          基于WebGL技术的沉浸式深空探测可视化平台
+          基于 JPL 星历 · WebGL 渲染 · 开普勒轨道引擎的深空探测可视化平台
         </p>
         <div class="hero-buttons">
           <button @click="goToExplore" class="btn btn-primary">
@@ -42,16 +42,16 @@
         <!-- 统计数据 -->
         <div class="hero-stats">
           <div class="stat-item">
-            <div class="stat-number">8+</div>
-            <div class="stat-label">行星系统</div>
+            <div class="stat-number">8</div>
+            <div class="stat-label">大行星实时解算</div>
           </div>
           <div class="stat-item">
-            <div class="stat-number">3D</div>
-            <div class="stat-label">沉浸体验</div>
+            <div class="stat-number">11+</div>
+            <div class="stat-label">深空探测器轨迹</div>
           </div>
           <div class="stat-item">
-            <div class="stat-number">实时</div>
-            <div class="stat-label">轨道计算</div>
+            <div class="stat-number">60fps</div>
+            <div class="stat-label">WebGL 渲染目标</div>
           </div>
         </div>
       </div>
@@ -67,7 +67,7 @@
     <section id="features" class="features-section">
       <div class="section-header">
         <h2 class="section-title">深空任务视界</h2>
-        <p class="section-subtitle">以时间线为主线，总览人类深空探索历程——从太阳系全局到一线探测影像，尽在一屏之内</p>
+        <p class="section-subtitle">时间轴驱动、全场景联动——从行星轨道到探测器飞行路径，从历史弹道到第一线影像，同屏呈现，随时可查</p>
       </div>
       
       <div class="features-grid">
@@ -159,7 +159,7 @@
     <section id="exploration" class="exploration-section">
       <div class="section-header">
         <h2 class="section-title">天体深度探索</h2>
-        <p class="section-subtitle">脱离时间线束缚，进入完全沉浸的高精度三维天体场景，自由旋转、缩放，观察每一寸星球表面</p>
+        <p class="section-subtitle">离开轨道视角，以 WebGL 完全沉浸进单颗天体——360° 自由旋转、无极缩放，从赤道到极冠逐寸探索地貌细节</p>
       </div>
       
       <div class="targets-container">
@@ -214,46 +214,49 @@
         <!-- 左：文字内容 -->
         <div class="about-text-col">
           <h2 class="section-title" style="-webkit-text-fill-color: unset; background: none; color: #fff;">关于平台</h2>
-          <p class="about-tagline">Science-grade visualization · Open data · Zero compromise</p>
+          <p class="about-tagline">Real Orbital Mechanics · Open Data Pipeline · Graceful Fallback</p>
           <p class="about-text">
-            深空探测可视化平台以 <strong>NASA JPL 行星历表（DE440）</strong> 为权威数据源，
-            基于开普勒六根数 + 牛顿-拉弗森迭代精确解算每颗天体在任意历元的日心坐标，
-            并通过 <strong>对数尺度映射算法</strong> 突破宇宙比例极限，在单一视口内同时呈现
-            内太阳系与外太阳系全貌，误差优于 0.01 AU。
+            平台以 <strong>JPL Horizons Web API（DE441 数值积分）</strong> 为主要数据源，
+            后端代理并缓存 P/V 矢量输出，行星定位精度可达 <0.1 角秒；
+            网络不可达时无缝降级本地 <strong>DE440 开普勒引擎</strong>，
+            经牛顿-拉弗森迭代解算真近点角，误差优于 0.01 AU，全环境可用。
+            <strong>对数尺度映射算法</strong>突破宇宙比例极限，
+            内外太阳系全貌同屏呈现。
           </p>
           <p class="about-text" style="margin-top: 16px;">
-            平台采用前后端分离架构：前端以 <strong>Vue 3 Composition API</strong> 驱动
-            响应式状态，Three.js 完成 WebGL 渲染管线；后端以 Node.js 充当
-            <strong>JPL Horizons API 代理与星历缓存层</strong>，将 P/V 矢量数据转化为
-            前端可直接消费的结构化 JSON，实现秒级刷新与离线降级兼备。
+            前端以 <strong>Vue 3 Composition API</strong> 统一管理时间、视角与选中状态，
+            Three.js WebGL 管线负责行星、轨道线、探测器模型与星场的帧渲染；
+            后端 <strong>Node.js</strong> 充当 JPL Horizons 与 NASA Open API 双代理缓存层，
+            将星历与影像数据转化为前端直接消费的结构化 JSON，
+            秒级刷新与离线降级同时兼备。
           </p>
           <div class="about-pillars">
             <div class="pillar-item">
               <span class="pillar-icon">🛰️</span>
               <div>
-                <strong>开普勒轨道引擎</strong>
-                <p>DE440 根数 + 数值积分，行星及探测器轨迹科研级精度</p>
+                <strong>双轨星历引擎</strong>
+                <p>JPL Horizons 精确数值积分优先，本地 DE440 开普勒解算无缝兜底，全网络环境可用</p>
               </div>
             </div>
             <div class="pillar-item">
               <span class="pillar-icon">📡</span>
               <div>
-                <strong>实时开放数据接入</strong>
-                <p>联通 NASA Open API · JPL Horizons · 太阳系小天体数据库</p>
+                <strong>多源开放数据接入</strong>
+                <p>后端代理 JPL Horizons · NASA Open API，文件缓存层降低外部依赖风险</p>
               </div>
             </div>
             <div class="pillar-item">
               <span class="pillar-icon">⚡</span>
               <div>
-                <strong>极致渲染性能</strong>
-                <p>InstancedMesh 批量绘制 · LOD 分层 · 道格拉斯-普克轨迹抽稀</p>
+                <strong>WebGL 高效渲染</strong>
+                <p>BufferGeometry 管理轨道几何 · 道格拉斯-普克轨迹抽稀 · 60fps 目标帧率</p>
               </div>
             </div>
             <div class="pillar-item">
               <span class="pillar-icon">🔭</span>
               <div>
-                <strong>沉浸式交互设计</strong>
-                <p>TWEEN 相机飞行动画 · 射线检测点击 · 时间轴驱动全场景联动</p>
+                <strong>沉浸式时序交互</strong>
+                <p>TWEEN 平滑相机飞行 · Raycaster 天体拾取 · 时间轴拖动驱动全场景同步推演</p>
               </div>
             </div>
           </div>
@@ -262,11 +265,11 @@
         <div class="about-metrics-col">
           <div class="metric-card">
             <div class="metric-value">DE440</div>
-            <div class="metric-label">JPL 行星历表版本</div>
+            <div class="metric-label">本地开普勒引擎基准历表</div>
           </div>
           <div class="metric-card">
-            <div class="metric-value">&lt; 0.01 AU</div>
-            <div class="metric-label">行星位置计算误差</div>
+            <div class="metric-value">< 0.01 AU</div>
+            <div class="metric-label">行星位置解算误差上限</div>
           </div>
           <div class="metric-card">
             <div class="metric-value">60 fps</div>
@@ -274,11 +277,11 @@
           </div>
           <div class="metric-card">
             <div class="metric-value">10<sup>6</sup>+</div>
-            <div class="metric-label">可渲染星场粒子数量</div>
+            <div class="metric-label">星场粒子可渲染上限</div>
           </div>
           <div class="metric-card accent">
             <div class="metric-value">Open Data</div>
-            <div class="metric-label">数据来源完全公开可验证</div>
+            <div class="metric-label">数据来源完全公开、可独立验证</div>
           </div>
         </div>
       </div>
@@ -300,35 +303,34 @@ const features = [
   {
     svgId: 'solar',
     title: '太阳系全景',
-    description: '八大行星开普勒轨道实时推算，对数尺度映射解决宇宙比例难题，时间轴驱动行星公转与探测器飞行轨迹同步演绎。',
+    description: 'JPL Horizons 精确星历与本地开普勒引擎双轨驱动，对数尺度映射破解宇宙比例壁垒；拖动时间轴，八大行星公转与 11+ 条探测器飞行轨迹即时联动重演。',
     action: () => navigateTo('/solar-system')
   },
   {
     svgId: 'moon',
     title: '地月空间',
-    description: '地球-月球区域放大视图，还原阿波罗、嫦娥系列历次任务弹道，结合时间轴重现人类首次踏月的完整旅程。',
+    description: '地月系统专属放大视图，以轨道动力学精确重建阿波罗与嫦娥历次任务飞行弹道；滑动时间轴，沿原始轨迹完整复刻人类踏上月球的每一步。',
     action: () => navigateTo('/moon')
   },
   {
     svgId: 'mars',
     title: '火星征途',
-    description: '聚焦火星探测圈，呈现好奇号、毅力号、天问一号等探测器入轨-降落-巡视全程轨迹，实时任务状态一目了然。',
+    description: '还原好奇号、毅力号、天问一号从地火转移轨道到地面巡视的完整路径；着陆点精确标注，任务状态实时可查，探测圈全貌一屏呈现。',
     action: () => navigateTo('/mars')
   },
   {
     svgId: 'gallery',
     title: '成果回廊',
-    description: '汇聚 NASA 火星车实拍原始影像，按日期与相机类型筛选，ECharts 图表揭示拍摄规律，灯箱模式沉浸细读每一帧历史。',
+    description: '直连 NASA Mars Rover Photo API，按任务日、太阳日与相机类型多维检索原始探测影像；ECharts 图表揭示拍摄规律，灯箱模式逐帧审读每一幅珍贵历史记录。',
     action: () => navigateTo('/gallery')
   }
 ]
 
 const targets = [
-  
   {
     name: '月球秘境',
     badge: '高精度模型',
-    description: '高精度月球三维球体，带标注陨石坑与阿波罗着陆点，可近距离观察月面地貌细节，感受寂静之海的荒芜之美。',
+    description: '高精度三维月球模型，精确标注陨石坑分布与阿波罗着陆点；自由缩放至月面，寂静海盆地与高地起伏历历在目，感受静止 38 万公里之外的荒芜之美。',
     gradient: 'radial-gradient(circle at 30% 30%, #D8D8D8, #8A8A8A, #111)',
     glowColor: 'radial-gradient(circle, rgba(200,200,200,0.3), transparent)',
     action: () => navigateTo('/moon-secret')
@@ -336,7 +338,7 @@ const targets = [
   {
     name: '火星奇境',
     badge: '地貌探索',
-    description: '火星高精度地形模型，精确呈现奥林帕斯山（太阳系最高峰）、水手谷（最深峡谷）等标志性地貌，震撼视觉体验。',
+    description: '基于真实地形数据的火星三维模型，呈现奥林帕斯山（海拔约 22 km，太阳系最高峰）与水手谷（深度达 7 km）的真实尺度；旋转、俯瞰，感受红色星球令人窒息的地貌震撼。',
     gradient: 'radial-gradient(circle at 30% 30%, #FF7050, #C1440E, #1a0500)',
     glowColor: 'radial-gradient(circle, rgba(193,68,14,0.3), transparent)',
     action: () => navigateTo('/mars-wonder')
@@ -344,7 +346,7 @@ const targets = [
   {
     name: '木星巨眼',
     badge: '云带深处',
-    description: '拖动鼠标，以任意角度观察木星复杂的大气分层。可见光纹理源自朱诺号JunoCam，每一条条纹都是一股时速数百公里的急流。',
+    description: '纹理源自朱诺号 JunoCam 真实拍摄数据；360° 自由旋转观察大气带纹与大红斑，每一道云纹背后都是一股时速超过 600 km/h 的高速气流。',
     gradient: 'radial-gradient(circle at 30% 30%, #E8A87C, #C77D43, #3A2318)',
     glowColor: 'radial-gradient(circle, rgba(200,125,67,0.35), transparent)',
     action: () => navigateTo('/jupiter-eye')
@@ -355,28 +357,28 @@ const technologies = [
   {
     name: 'Vue 3',
     logo: 'https://vuejs.org/logo.svg',
-    desc: 'Composition API + Pinia 构建响应式数据流，组件颗粒化驱动场景联动'
+    desc: 'Composition API + Pinia 统一管理时间轴、视角与选中状态，组件级响应驱动全场景联动更新'
   },
   {
     name: 'Three.js',
     logo: 'https://threejs.org/files/favicon.ico',
     filter: 'invert(1) brightness(2)',
-    desc: 'WebGL 渲染管线 + PBR 光照，InstancedMesh 亿级粒子实时渲染'
+    desc: 'WebGL 渲染管线 + PBR 材质，BufferGeometry 管理轨道几何，Raycaster 实现精准天体拾取与飞行动画'
   },
   {
     name: 'Vite 5',
     logo: 'https://vitejs.dev/logo.svg',
-    desc: 'ESM 原生热更新，Rollup 生产构建，毫秒级 HMR 极速迭代'
+    desc: 'ESM 原生热替换，Rollup 按页面代码分割；毫秒级 HMR 保障调试效率，生产构建 gzip 体积最小化'
   },
   {
     name: 'Apache ECharts',
     logo: 'https://echarts.apache.org/zh/images/favicon.png',
-    desc: '时间轴驱动、统计图表与 3D 场景双向联动，数据可视化深度集成'
+    desc: '深度集成于探测影像回廊：拍摄量趋势折线、相机分布饼图、时间分布条形图，让原始数据自己说话'
   },
   {
     name: 'Node.js',
     logo: 'https://nodejs.org/static/images/logo.svg',
-    desc: 'Express 框架搭建 JPL Horizons API 代理，提供高性能星历数据服务'
+    desc: 'Express 代理 JPL Horizons · NASA Open API，内置文件缓存层；网络不可达时自动降级本地星历引擎'
   }
 ]
 

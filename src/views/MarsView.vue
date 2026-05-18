@@ -466,7 +466,7 @@ async function initScene() {
   createStarfield()
 
   // 纹理
-  const marsTex = await loadTexture('/textures/mars_diffuse.jpg.jpg')
+  const marsTex = await loadTexture('/textures/mars_diffuse.jpg')
 
   // ── 光照 ──
   dirLight = new THREE.DirectionalLight(0xFFDDCC, 2.8)

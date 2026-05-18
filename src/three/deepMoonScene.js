@@ -254,10 +254,17 @@ export class DeepMoonScene {
     }
     this.scene.add(this.moonMesh)
 
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.4)
+    // 灯光 —— 展示模式：全球均匀可见，方便浏览高精度地形
+    // 强环境光保证背光半球不黑，方向光保留少量立体感
+    const ambientLight = new THREE.AmbientLight(0xdce8ff, 1.6)
     this.scene.add(ambientLight)
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1)
+    // 半球光：天空偏冷白 / 地面偏深灰，增加柔和层次（月球色调）
+    const hemi = new THREE.HemisphereLight(0xeef2ff, 0x111111, 0.6)
+    this.scene.add(hemi)
+
+    // 方向光弱化至 0.5，仅用于保留一点高光立体感
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5)
     directionalLight.position.set(5, 5, 5)
     this.scene.add(directionalLight)
   }

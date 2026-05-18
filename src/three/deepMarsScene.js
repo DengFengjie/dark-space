@@ -258,11 +258,17 @@ export class DeepMarsScene {
     }
     this.scene.add(this.marsMesh)
 
-    // 灯光
-    const ambient = new THREE.AmbientLight(0x402010, 0.5)
+    // 灯光 —— 展示模式：全球均匀可见，方便浏览高精度地形
+    // 强环境光保证背光半球不黑，方向光保留少量立体感
+    const ambient = new THREE.AmbientLight(0xffddc8, 1.6)
     this.scene.add(ambient)
 
-    const sun = new THREE.DirectionalLight(0xfff0e8, 1.1)
+    // 半球光：天空偏暖橙 / 地面偏深红，增加柔和层次
+    const hemi = new THREE.HemisphereLight(0xffc080, 0x300a00, 0.6)
+    this.scene.add(hemi)
+
+    // 方向光弱化至 0.5，仅用于保留一点高光立体感
+    const sun = new THREE.DirectionalLight(0xffe8d8, 0.5)
     sun.position.set(5, 5, 5)
     this.scene.add(sun)
 

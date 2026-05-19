@@ -1,4 +1,6 @@
 @echo off
+chcp 65001 >nul
+setlocal EnableExtensions
 echo ========================================
 echo   深空探测可视化展示平台 - 启动脚本
 echo ========================================
@@ -112,6 +114,14 @@ if %errorlevel% equ 0 (
 )
 goto end
 
+:help
+echo.
+echo 说明：
+echo - 开发模式会同时启动前端 ^(Vite^) 和后端 ^(Express^)
+echo - 生产服务器会先构建 dist/，再由后端托管
+echo - 如需 API Key，请在 .env 中配置 MARS_VISTA_API_KEY
+goto end
+
 :invalid
 echo.
 echo [错误] 无效的选项，请重新运行脚本
@@ -120,3 +130,4 @@ echo.
 :end
 echo.
 pause
+endlocal

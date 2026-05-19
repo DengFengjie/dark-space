@@ -1,4 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -e
 
 echo "========================================"
 echo "  深空探测可视化展示平台 - 启动脚本"
@@ -48,7 +50,7 @@ echo "2. 生产服务器 (Production Server) - http://localhost:8080"
 echo "3. 仅构建 (Build Only)"
 echo "4. 退出"
 echo ""
-read -p "请输入选项 (1-4): " choice
+read -r -p "请输入选项 (1-4): " choice
 
 case $choice in
     1)

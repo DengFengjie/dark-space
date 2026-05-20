@@ -53,7 +53,7 @@ export const PROBE_IDS = {
   pioneer:           '-23',   // Pioneer 10
   ace:               '-92',   // Advanced Composition Explorer
   deepImpact:        '-140',  // Deep Impact
-  marsGlobalSurveyor:'-94',   // Mars Global Surveyor
+  // marsGlobalSurveyor: JPL Horizons Web API 中不存在该航天器的星历数据，使用本地生成轨迹替代
 }
 
 /**

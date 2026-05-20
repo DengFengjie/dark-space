@@ -17,6 +17,8 @@ Thumbs.db
 
 # 测试 / 诊断脚本
 server/test-horizons.js
+server/test-probe-ids.js
+server/test-mgs.js
 
 # 环境变量
 .env

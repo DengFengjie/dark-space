@@ -240,13 +240,13 @@ async function buildProbeTrajectories() {
       { key: 'voyager2',           probeKey: 'voyager2',           startTime: '1977-08-20', stopTime: '2030-01-01' },
       { key: 'juno',               probeKey: 'juno',               startTime: '2011-08-05', stopTime: '2026-12-31' },
       { key: 'parker',             probeKey: 'parker',             startTime: '2018-08-12', stopTime: '2026-12-31' },
-      { key: 'galileo',            probeKey: 'galileo',            startTime: '1989-10-18', stopTime: '2003-12-31' },
-      { key: 'cassini',            probeKey: 'cassini',            startTime: '1997-10-15', stopTime: '2017-12-31' },
-      { key: 'rosetta',            probeKey: 'rosetta',            startTime: '2004-03-02', stopTime: '2016-12-31' },
-      { key: 'pioneer',            probeKey: 'pioneer',            startTime: '1972-03-04', stopTime: '2003-12-31' },
-      { key: 'ace',                probeKey: 'ace',                startTime: '1997-08-25', stopTime: '2030-01-01' },
-      { key: 'deepImpact',         probeKey: 'deepImpact',         startTime: '2005-01-12', stopTime: '2013-12-31' },
-      { key: 'marsGlobalSurveyor', probeKey: 'marsGlobalSurveyor', startTime: '1996-11-07', stopTime: '2006-12-31' },
+      { key: 'galileo',            probeKey: 'galileo',            startTime: '1989-10-18', stopTime: '2003-09-20' }, // 任务终止 2003-09-21（坠入木星）
+      { key: 'cassini',            probeKey: 'cassini',            startTime: '1997-10-15', stopTime: '2017-09-14' }, // 任务终止 2017-09-15（坠入土星）
+      { key: 'rosetta',            probeKey: 'rosetta',            startTime: '2004-03-02', stopTime: '2016-09-29' }, // 任务终止 2016-09-30（撞击彗星）
+      { key: 'pioneer',            probeKey: 'pioneer',            startTime: '1972-03-04', stopTime: '2003-01-22' }, // 最后一次遥测 2003-01-23
+      { key: 'ace',                probeKey: 'ace',                startTime: '1997-08-25', stopTime: '2030-01-01' }, // 仍在运行
+      { key: 'deepImpact',         probeKey: 'deepImpact',         startTime: '2005-01-12', stopTime: '2013-09-19' }, // 失联 ~2013-09-20 (EPOXI 任务)
+      // marsGlobalSurveyor: JPL Horizons 不提供该航天器星历，跳过，使用本地生成轨迹
     ])
   ])
 

@@ -48,7 +48,7 @@ export const PROBE_IDS = {
   dawn:              '-203',
   rosetta:           '-226',
   tianwen1:          '-5',
-  parker:            'PSP',   // Parker Solar Probe
+  parker:            '-96',   // Parker Solar Probe (NAIF ID -96; 'PSP' 是文本名称会被当作小天体查询导致报错)
   galileo:           '-77',
   pioneer:           '-23',   // Pioneer 10
   ace:               '-92',   // Advanced Composition Explorer
@@ -64,7 +64,7 @@ export const PROBE_IDS = {
  * @param {string} stepSize - 采样步长，如 '30d', '1m'
  * @returns {Promise<Array<{time, x, y, z}>>} 坐标点数组（AU）
  */
-export async function getEphemeris(target, startTime, stopTime, stepSize = '30d') {
+export async function getEphemeris(target, startTime, stopTime, stepSize = '1 d') {
   try {
     const params = new URLSearchParams({ target, startTime, stopTime, stepSize })
     const res = await fetch(`${BASE_URL}/ephemeris?${params}`)
@@ -90,7 +90,7 @@ export async function getProbeTrajectory(probeKey, startTime, stopTime) {
     console.warn(`未知探测器: ${probeKey}`)
     return []
   }
-  return getEphemeris(target, startTime, stopTime, '30d')
+  return getEphemeris(target, startTime, stopTime, '30 d')
 }
 
 /**
@@ -105,7 +105,7 @@ export async function getProbeTrajectory(probeKey, startTime, stopTime) {
  */
 export async function getBatchProbeTrajectories(requests) {
   const items = requests
-    .map(({ key, probeKey, startTime, stopTime, stepSize = '30d' }) => {
+    .map(({ key, probeKey, startTime, stopTime, stepSize = '30 d' }) => {
       const target = PROBE_IDS[probeKey]
       if (!target) {
         console.warn(`未知探测器: ${probeKey}`)
@@ -155,7 +155,7 @@ export async function getPlanetPosition(planetKey, dateStr) {
   // 取当日 + 次日，只需 1 个数据点
   const d    = new Date(dateStr)
   const next = new Date(d.getTime() + 86400000).toISOString().slice(0, 10)
-  const data = await getEphemeris(target, dateStr, next, '1d')
+  const data = await getEphemeris(target, dateStr, next, '1 d')
   return data && data.length > 0 ? data[0] : null
 }
 
@@ -195,7 +195,7 @@ export async function getBatchPlanetPositions(planetKeys, dateStr) {
     .map(key => {
       const target = PLANET_IDS[key]
       if (!target) return null
-      return { key, target, startTime: dateStr, stopTime: next, stepSize: '1d' }
+      return { key, target, startTime: dateStr, stopTime: next, stepSize: '1 d' }
     })
     .filter(Boolean)
 

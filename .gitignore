@@ -15,8 +15,17 @@ dist/
 .DS_Store
 Thumbs.db
 
+# 测试 / 诊断脚本
+server/test-horizons.js
+
 # 环境变量
 .env
 .env.local
 .env.*.local
 package-lock.json
+
+# 毕业论文
+毕业设计答辩PPT提示词.md
+
+#缓存
+server/cache/

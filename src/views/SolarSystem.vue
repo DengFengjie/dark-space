@@ -243,7 +243,7 @@ async function buildProbeTrajectories() {
       { key: 'galileo',            probeKey: 'galileo',            startTime: '1989-10-18', stopTime: '2003-12-31' },
       { key: 'cassini',            probeKey: 'cassini',            startTime: '1997-10-15', stopTime: '2017-12-31' },
       { key: 'rosetta',            probeKey: 'rosetta',            startTime: '2004-03-02', stopTime: '2016-12-31' },
-      { key: 'pioneer',            probeKey: 'pioneer',            startTime: '1972-03-02', stopTime: '2003-12-31' },
+      { key: 'pioneer',            probeKey: 'pioneer',            startTime: '1972-03-04', stopTime: '2003-12-31' },
       { key: 'ace',                probeKey: 'ace',                startTime: '1997-08-25', stopTime: '2030-01-01' },
       { key: 'deepImpact',         probeKey: 'deepImpact',         startTime: '2005-01-12', stopTime: '2013-12-31' },
       { key: 'marsGlobalSurveyor', probeKey: 'marsGlobalSurveyor', startTime: '1996-11-07', stopTime: '2006-12-31' },
